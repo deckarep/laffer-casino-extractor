@@ -12,6 +12,10 @@ maxToConsume = 1e9 * 2
 
 # Observed patterns so far
 # 1. byte:00, byte:01, byte:<run count>, byte:<color idx> - used for transparency.
+# 2. Literal run pattern:
+#	[0002] - marks a literal run
+#   [byte or 2byte] - how many in the literal run
+#   [.....] - the actual bytes as color indices in the run
 # 2. 0002 after every compression run except the first? Not sure if this is for sure. 
 
 
