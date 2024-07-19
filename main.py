@@ -122,38 +122,65 @@ def doReg(kind, width, height):
 		x = 0
 		while (x < width):
 			haveRun = False
+			haveLiteral = False
 			try:
-				color = consumeByte()
+				singleByte = consumeByte()
 			except Exception as e:
 				if str(e) == "max bytes consumed":
 					return
 				streamPadding +=1
-				color = 0
+				singleByte = 0
 
-			if color == 0:
-				secondColor = consumeByte()
-				if secondColor == 0x01:
-					runLen = consumeByte()
-					haveRun = True
-				else:
-					unconsumeBytes(1)
+			if singleByte == 0x01:
+				# Basic case: Single Color Run, often used for transparency.
+				# Next byte: <runLen>
+				# Next byte: <colorIdx>
+				runLen = consumeByte()
+				colorIdx = consumeByte()
+				haveRun = True
+			elif singleByte == 0x02:
+				# Literal case: a sequence of N literal bytes.
+				literalLen = consumeByte()
+				zeroDelimiter = consumeByte()
+				literalSeen = 0
+				haveLiteral = True
+
+			
+			# elif singleByte == 0:
+			# 	secondColor = consumeByte()
+			# 	if secondColor == 0x01:
+			# 		runLen = consumeByte()
+			# 		haveRun = True
+			# 	else:
+			# 		unconsumeBytes(1)
 					
 			#print("color: "+str(color))
-			p = color * 3 
-			r = pal[p]
-			g = pal[p + 1]
-			b = pal[p + 2]
+			
 			
 			# This logging was for the yellow smiley faces and not relevant to peter texture.
 			# log color at beginning of row.
 			# if (y >= 14 and y <= 15):#(x == 0):
 			# 	print("x: " + str(x) + ", y: " + str(y) + ", idx: " + str(color) + ", idx(b): " + format(color, '08b'))
 			if haveRun:
+				p = colorIdx * 3
+				r = pal[p] 
+				g = pal[p + 1]
+				b = pal[p + 2]
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
 				# Increment x by runLen + however many bytes were consumed.
 				x += runLen + 3
+			elif haveLiteral:
+				for i in range(literalLen):
+					colorIdx = consumeByte()
+					p = colorIdx * 3
+					r = pal[p]
+					g = pal[p + 1] 
+					b = pal[p + 2]
+					draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
+					x +=1
 			else:
-				draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
+				# raise Exception("Unknown else case has occurred!!!")
+				draw.rectangle((x, y, x+1, y+1), fill=(0xff, 0x00, 0x00))
 				x += 1
 		y += 1
 	
@@ -197,7 +224,8 @@ with open("peter_texture_isolated.bin", "rb") as f:
 			im = Image.new('RGB', (width, height), (255, 255, 255))
 			draw = ImageDraw.Draw(im)
 			
-			bytesToSkip = 19 # originally 8
+			# Starting at 35, second scan line because first line is still odd.
+			bytesToSkip = 35 # originally 8
 			f.read(bytesToSkip)
 
 			#doRLE('rle', imgSize, width)
