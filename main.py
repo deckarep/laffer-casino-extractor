@@ -8,7 +8,7 @@ from PIL import Image, ImageFont, ImageDraw
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fnum = 0
 totalConsumed = 0
-MAX_SCAN_LINES = -100
+MAX_SCAN_LINES = -10
 
 # Observed patterns so far
 # 1. byte:00, byte:01, byte:<run count>, byte:<color idx> - used for transparency.
@@ -131,7 +131,8 @@ def doReg(kind, width, height):
 		x = 0
 		while (x < width):
 			haveRun = False
-			haveLiteral = False
+			haveLiteralSeq = False
+			haveSingleRunNonTransparent = False
 			try:
 				singleByte = consumeSingleByte()
 			except Exception as e:
@@ -148,11 +149,15 @@ def doReg(kind, width, height):
 				colorIdx = consumeSingleByte()
 				haveRun = True
 			elif singleByte == 0x02:
-				# Literal case: a sequence of N literal bytes.
+				# Literal case: a sequence of differing N literal bytes.
 				literalLen = consumeSingleByte()
 				zeroDelimiter = consumeSingleByte()
-				literalSeen = 0
-				haveLiteral = True
+				haveLiteralSeq = True
+			elif singleByte == 0x08:
+				# Single Color Run: NON-transparency
+				runLen = consumeSingleByte()
+				zeroDelimiter = consumeSingleByte()
+				haveSingleRunNonTransparent = True
 
 			if haveRun:
 				p = colorIdx * 3
@@ -160,22 +165,36 @@ def doReg(kind, width, height):
 				g = pal[p + 1]
 				b = pal[p + 2]
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
+				print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 				# Increment x by runLen + however many bytes were consumed.
-				x += runLen + 3
-			elif haveLiteral:
+				x += runLen# + 3
+			elif haveLiteralSeq:
 				for i in range(literalLen):
 					colorIdx = consumeSingleByte()
 					p = colorIdx * 3
 					r = pal[p]
 					g = pal[p + 1] 
 					b = pal[p + 2]
-					draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
+					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 					x +=1
-				x += 3 # BUG?????: since I consumed bytes above for a literal, do i need to inc x?
+				# BUG HERE: STILL SEEING ARTIFACTS with this logic!
+				# TODO: FIXME!
+				#x += 3 # BUG?????: since I consumed bytes above for a literal, do i need to inc x?
+			elif haveSingleRunNonTransparent:
+				colorIdx = consumeSingleByte()
+				p = colorIdx * 3
+				r = pal[p]
+				g = pal[p + 1] 
+				b = pal[p + 2]
+				for i in range(runLen):
+					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					x +=1
 			else:
 				# raise Exception("Unknown else case has occurred!!!")
 				hotPink = (0xfe, 0x24, 0xb6)
 				draw.rectangle((x, y, x+1, y+1), fill=hotPink)
+				print(f"else: x={x}, y={y}, byte=0x{singleByte:x}, color=HOT_PINK")
 				x += 1
 		y += 1
 	
