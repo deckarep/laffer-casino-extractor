@@ -145,22 +145,6 @@ def doReg(kind, width, height):
 				literalSeen = 0
 				haveLiteral = True
 
-			
-			# elif singleByte == 0:
-			# 	secondColor = consumeByte()
-			# 	if secondColor == 0x01:
-			# 		runLen = consumeByte()
-			# 		haveRun = True
-			# 	else:
-			# 		unconsumeBytes(1)
-					
-			#print("color: "+str(color))
-			
-			
-			# This logging was for the yellow smiley faces and not relevant to peter texture.
-			# log color at beginning of row.
-			# if (y >= 14 and y <= 15):#(x == 0):
-			# 	print("x: " + str(x) + ", y: " + str(y) + ", idx: " + str(color) + ", idx(b): " + format(color, '08b'))
 			if haveRun:
 				p = colorIdx * 3
 				r = pal[p] 
@@ -232,6 +216,6 @@ with open("peter_texture_isolated.bin", "rb") as f:
 			doReg('reg', width, height)
 
 			s = "img/" + str(fnum) + '.png'
-			im.save(s, quality=95)
+			im.save(s, quality=100)
 			fnum += 1
 			print("stopped at: " + str(f.tell()))
