@@ -8,7 +8,7 @@ from PIL import Image, ImageFont, ImageDraw
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fnum = 0
 totalConsumed = 0
-maxToConsume = 1e9 * 2
+MAX_SCAN_LINES = -100
 
 # Observed patterns so far
 # 1. byte:00, byte:01, byte:<run count>, byte:<color idx> - used for transparency.
@@ -101,30 +101,39 @@ def doRLE(kind, imgSize, width):
 				x = 0
 				y += 1
 
-def consumeByte():
+def consumeSingleByte():
 	global totalConsumed
-	if totalConsumed >= maxToConsume:
-		raise Exception("max bytes consumed")
+	# if totalConsumed >= maxToConsume:
+	# 	raise Exception("max bytes consumed")
 	result = struct.unpack('<B', f.read(1))[0]
 	totalConsumed +=1
 	return result
 
+def consumeNBytes(howMany):
+	global totalConsumed
+	totalConsumed += howMany
+	return f.read(howMany)
+
 def unconsumeBytes(howMany):
 	howMany *= -1
 	global totalConsumed
-	totalConsumed += howMany
 	f.seek(howMany, 1)
+	totalConsumed -= howMany
 
 def doReg(kind, width, height):
 	y = 0
 	streamPadding = 0
 	while (y < height):
+		if MAX_SCAN_LINES > 0 and y >= MAX_SCAN_LINES:
+			# Only evaluate when negative.
+			return
+		
 		x = 0
 		while (x < width):
 			haveRun = False
 			haveLiteral = False
 			try:
-				singleByte = consumeByte()
+				singleByte = consumeSingleByte()
 			except Exception as e:
 				if str(e) == "max bytes consumed":
 					return
@@ -135,13 +144,13 @@ def doReg(kind, width, height):
 				# Basic case: Single Color Run, often used for transparency.
 				# Next byte: <runLen>
 				# Next byte: <colorIdx>
-				runLen = consumeByte()
-				colorIdx = consumeByte()
+				runLen = consumeSingleByte()
+				colorIdx = consumeSingleByte()
 				haveRun = True
 			elif singleByte == 0x02:
 				# Literal case: a sequence of N literal bytes.
-				literalLen = consumeByte()
-				zeroDelimiter = consumeByte()
+				literalLen = consumeSingleByte()
+				zeroDelimiter = consumeSingleByte()
 				literalSeen = 0
 				haveLiteral = True
 
@@ -155,44 +164,51 @@ def doReg(kind, width, height):
 				x += runLen + 3
 			elif haveLiteral:
 				for i in range(literalLen):
-					colorIdx = consumeByte()
+					colorIdx = consumeSingleByte()
 					p = colorIdx * 3
 					r = pal[p]
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
 					x +=1
+				x += 3 # BUG?????: since I consumed bytes above for a literal, do i need to inc x?
 			else:
 				# raise Exception("Unknown else case has occurred!!!")
-				draw.rectangle((x, y, x+1, y+1), fill=(0xff, 0x00, 0x00))
+				hotPink = (0xfe, 0x24, 0xb6)
+				draw.rectangle((x, y, x+1, y+1), fill=hotPink)
 				x += 1
 		y += 1
 	
 	print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
 with open("peter_texture_isolated.bin", "rb") as f:
-	while (byte := f.read(1)):
-		if (byte == b'\x74' and f.read(1) == b'\x65' and f.read(1) == b'\x78' and
-	  		f.read(1) == b'\x20' and f.read(1) == b'\x30' and f.read(1) == b'\x30' and 
-			f.read(1) == b'\x30' and f.read(1) == b'\x31'):
+	while (byte := consumeNBytes(1)):
+		if (byte == b'\x74' and consumeNBytes(1) == b'\x65' and consumeNBytes(1) == b'\x78' and
+	  		consumeNBytes(1) == b'\x20' and consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x30' and 
+			consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x31'):
 			print("Found tex 0001, fnum: " + str(fnum) + " starting at: " + str(f.tell()-8))
+
+			print("magic consumed: " + str(totalConsumed))
 			
 			i = 0
 			pal = []
 			while ( i < 768):
-				c = consumeByte()
+				c = consumeSingleByte()
 				pal.append(c)
 				i += 1
 			
-			#if not os.path.exists("pal/0_Pal.png"):
-			exportPalImg()
+			print("palette consumed: " + str(totalConsumed))
+			if not os.path.exists("pal/0_Pal.png"):
+				exportPalImg()
 			
-			unknown = f.read(4)
+			unknown = consumeNBytes(4)
 			logUnknown(f)
 			#print("unknown: " + str(unknown))
-			width = struct.unpack('<H', f.read(2))[0]
-			height = struct.unpack('<H', f.read(2))[0]
+			width = struct.unpack('<H', consumeNBytes(2))[0]
+			height = struct.unpack('<H', consumeNBytes(2))[0]
 			print("width: " + str(width) + ", height: " + str(height))
+
+			print("unknown + width + height consumed: " + str(totalConsumed))
 			
 			xPadding = 0
 			yPadding = 0
@@ -208,11 +224,11 @@ with open("peter_texture_isolated.bin", "rb") as f:
 			im = Image.new('RGB', (width, height), (255, 255, 255))
 			draw = ImageDraw.Draw(im)
 			
-			# Starting at 35, second scan line because first line is still odd.
-			bytesToSkip = 35 # originally 8
-			f.read(bytesToSkip)
+			# Starting at 27, second scan line because first line is still odd.
+			SKIP_BYTES = 27 # originally 8
+			consumeNBytes(SKIP_BYTES)
+			print('arbitrary consumed: ' + str(totalConsumed))
 
-			#doRLE('rle', imgSize, width)
 			doReg('reg', width, height)
 
 			s = "img/" + str(fnum) + '.png'
