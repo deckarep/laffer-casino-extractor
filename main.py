@@ -7,6 +7,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fnum = 0
+MAX_BYTES_TO_CONSUME = 300_000
 totalConsumed = 0
 MAX_SCAN_LINES = -10
 
@@ -103,8 +104,8 @@ def doRLE(kind, imgSize, width):
 
 def consumeSingleByte():
 	global totalConsumed
-	# if totalConsumed >= maxToConsume:
-	# 	raise Exception("max bytes consumed")
+	if totalConsumed >= MAX_BYTES_TO_CONSUME:
+		raise Exception("max bytes consumed")
 	result = struct.unpack('<B', f.read(1))[0]
 	totalConsumed +=1
 	return result
@@ -191,11 +192,13 @@ def doReg(kind, width, height):
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					x +=1
 			else:
-				# raise Exception("Unknown else case has occurred!!!")
-				hotPink = (0xfe, 0x24, 0xb6)
-				draw.rectangle((x, y, x+1, y+1), fill=hotPink)
-				print(f"else: x={x}, y={y}, byte=0x{singleByte:x}, color=HOT_PINK")
-				x += 1
+				# At least for Peter, these else values must be skipped!
+				# NOTE: I have to see if this holds true for other textures.
+				pass
+				# hotPink = (0xfe, 0x24, 0xb6)
+				# draw.rectangle((x, y, x+1, y+1), fill=hotPink)
+				# print(f"else: x={x}, y={y}, byte=0x{singleByte:x}, color=HOT_PINK")
+				#x += 1
 		y += 1
 	
 	print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
@@ -229,26 +232,17 @@ with open("peter_texture_isolated.bin", "rb") as f:
 
 			print("unknown + width + height consumed: " + str(totalConsumed))
 			
-			xPadding = 0
-			yPadding = 0
-			widthFactor = 1
-			heightFactor = 1
-			padding = True
-			
-			if padding:
-				width = (width * widthFactor) + xPadding
-				height = (height * heightFactor) + yPadding
-			
-			imgSize = width * height
-			im = Image.new('RGB', (width, height), (255, 255, 255))
+			rowFactor = 20
+
+			imgSize = width * (height * rowFactor)
+			im = Image.new('RGB', (width, (height * rowFactor)), (255, 255, 255))
 			draw = ImageDraw.Draw(im)
 			
-			# Starting at 27, second scan line because first line is still odd.
-			SKIP_BYTES = 27 # originally 8
+			SKIP_BYTES = 8 # originally 8
 			consumeNBytes(SKIP_BYTES)
 			print('arbitrary consumed: ' + str(totalConsumed))
 
-			doReg('reg', width, height)
+			doReg('reg', width, (height * rowFactor))
 
 			s = "img/" + str(fnum) + '.png'
 			im.save(s, quality=100)
