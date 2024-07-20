@@ -167,8 +167,8 @@ def doReg(kind, width, height):
 				b = pal[p + 2]
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
 				print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
-				# Increment x by runLen + however many bytes were consumed.
-				x += runLen# + 3
+				# Increment x by runLen.
+				x += runLen
 			elif haveLiteralSeq:
 				for i in range(literalLen):
 					colorIdx = consumeSingleByte()
@@ -179,9 +179,6 @@ def doReg(kind, width, height):
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 					x +=1
-				# BUG HERE: STILL SEEING ARTIFACTS with this logic!
-				# TODO: FIXME!
-				#x += 3 # BUG?????: since I consumed bytes above for a literal, do i need to inc x?
 			elif haveSingleRunNonTransparent:
 				colorIdx = consumeSingleByte()
 				p = colorIdx * 3
