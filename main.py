@@ -203,7 +203,7 @@ def doReg(kind, width, height):
 	
 	print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
-with open("peter_texture_isolated.bin", "rb") as f:
+with open("test_textures/peter_texture_isolated.bin", "rb") as f:
 	while (byte := consumeNBytes(1)):
 		if (byte == b'\x74' and consumeNBytes(1) == b'\x65' and consumeNBytes(1) == b'\x78' and
 	  		consumeNBytes(1) == b'\x20' and consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x30' and 
@@ -232,7 +232,7 @@ with open("peter_texture_isolated.bin", "rb") as f:
 
 			print("unknown + width + height consumed: " + str(totalConsumed))
 			
-			rowFactor = 20
+			rowFactor = 19
 
 			imgSize = width * (height * rowFactor)
 			im = Image.new('RGB', (width, (height * rowFactor)), (255, 255, 255))
