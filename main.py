@@ -80,7 +80,7 @@ def exportPalImg():
 	s = "pal/" + str(fnum) + '_Pal.png'
 	im.save(s, quality=100)
 
-def doRLE(kind, imgSize, width):
+
 	x = 0
 	y = 0
 	print("imgSize: "+str(imgSize))
