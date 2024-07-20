@@ -54,7 +54,7 @@ def logUnknown(f):
 	u9 = struct.unpack('<B', f.read(1))[0]
 	print("  0x310: as 8 u8:  " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5)+", "+str(u6)+", "+str(u7)+", "+str(u8)+", "+str(u9))
 
-def exportPalImg():
+def exportPalImg(pal):
 	i = 0
 	x = 0
 	y = 0
@@ -80,7 +80,6 @@ def exportPalImg():
 	s = "pal/" + str(fseries) + '_Pal.png'
 	im.save(s, quality=100)
 
-
 	x = 0
 	y = 0
 	print("imgSize: "+str(imgSize))
@@ -102,7 +101,8 @@ def exportPalImg():
 				x = 0
 				y += 1
 
-def consumeSingleByte():
+
+def consumeSingleByte(f):
 	global totalConsumed
 	if totalConsumed >= MAX_BYTES_TO_CONSUME:
 		raise Exception("max bytes consumed")
@@ -110,18 +110,18 @@ def consumeSingleByte():
 	totalConsumed +=1
 	return result
 
-def consumeNBytes(howMany):
+def consumeNBytes(f, howMany):
 	global totalConsumed
 	totalConsumed += howMany
 	return f.read(howMany)
 
-def unconsumeBytes(howMany):
+def unconsumeBytes(f, howMany):
 	howMany *= -1
 	global totalConsumed
 	f.seek(howMany, 1)
 	totalConsumed -= howMany
 
-def doReg(kind, width, height):
+def doReg(kind, f, pal, draw, width, height):
 	y = 0
 	streamPadding = 0
 	while (y < height):
@@ -135,7 +135,7 @@ def doReg(kind, width, height):
 			haveLiteralSeq = False
 			haveSingleRunNonTransparent = False
 			try:
-				singleByte = consumeSingleByte()
+				singleByte = consumeSingleByte(f)
 			except Exception as e:
 				if str(e) == "max bytes consumed":
 					return
@@ -146,18 +146,18 @@ def doReg(kind, width, height):
 				# Basic case: Single Color Run, often used for transparency.
 				# Next byte: <runLen>
 				# Next byte: <colorIdx>
-				runLen = consumeSingleByte()
-				colorIdx = consumeSingleByte()
+				runLen = consumeSingleByte(f)
+				colorIdx = consumeSingleByte(f)
 				haveRun = True
 			elif singleByte == 0x02:
 				# Literal case: a sequence of differing N literal bytes.
-				literalLen = consumeSingleByte()
-				zeroDelimiter = consumeSingleByte()
+				literalLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
 				haveLiteralSeq = True
 			elif singleByte == 0x08:
 				# Single Color Run: NON-transparency
-				runLen = consumeSingleByte()
-				zeroDelimiter = consumeSingleByte()
+				runLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
 				haveSingleRunNonTransparent = True
 
 			if haveRun:
@@ -171,7 +171,7 @@ def doReg(kind, width, height):
 				x += runLen
 			elif haveLiteralSeq:
 				for i in range(literalLen):
-					colorIdx = consumeSingleByte()
+					colorIdx = consumeSingleByte(f)
 					p = colorIdx * 3
 					r = pal[p]
 					g = pal[p + 1] 
@@ -180,7 +180,7 @@ def doReg(kind, width, height):
 					print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 					x +=1
 			elif haveSingleRunNonTransparent:
-				colorIdx = consumeSingleByte()
+				colorIdx = consumeSingleByte(f)
 				p = colorIdx * 3
 				r = pal[p]
 				g = pal[p + 1] 
@@ -200,59 +200,66 @@ def doReg(kind, width, height):
 	
 	print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
-with open("test_textures/peter_texture_isolated.bin", "rb") as f:
-	while (byte := consumeNBytes(1)):
-		if (byte == b'\x74' and consumeNBytes(1) == b'\x65' and consumeNBytes(1) == b'\x78' and
-	  		consumeNBytes(1) == b'\x20' and consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x30' and 
-			consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x31'):
-			print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
+def processTexture(f, series):
+	print("magic consumed: " + str(totalConsumed))
+	i = 0
+	pal = []
+	while ( i < 768):
+		c = consumeSingleByte(f)
+		pal.append(c)
+		i += 1
+	
+	print("palette consumed: " + str(totalConsumed))
+	if not os.path.exists(f"pal/{series}_Pal.png"):
+		exportPalImg(pal)
 
-			print("magic consumed: " + str(totalConsumed))
-			
-			i = 0
-			pal = []
-			while ( i < 768):
-				c = consumeSingleByte()
-				pal.append(c)
-				i += 1
-			
-			print("palette consumed: " + str(totalConsumed))
-			if not os.path.exists("pal/0_Pal.png"):
-				exportPalImg()
+	# This unknown is only right after the palette data and not for each item.
+	unknown = consumeNBytes(f, 4)
+	logUnknown(f)
+	#print("unknown: " + str(unknown))
+	
+	# Handle each image
+	# TODO: extract NUM_IMAGES from somewhere above.
+	# Observation: subsprites in a series can have different width/height vals.
+	#	so to make it easy, I'm just generating single files and not atlases.
+	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
+	# so it's really just 10 unique animation sprites. Verified with md5 check.
+	NUM_IMAGES = 20
+	i = 0
+	for i in range(NUM_IMAGES):
+		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		print("width: " + str(width) + ", height: " + str(height))
 
-			# This unknown is only right after the palette data and not for each item.
-			unknown = consumeNBytes(4)
-			logUnknown(f)
-			#print("unknown: " + str(unknown))
-			
-			# Handle each image
-			# TODO: extract NUM_IMAGES from somewhere above.
-			# Observation: subsprites in a series can have different width/height vals.
-			#	so to make it easy, I'm just generating single files and not atlases.
-			# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
-			# so it's really just 10 unique animation sprites. Verified with md5 check.
-			NUM_IMAGES = 20
-			i = 0
-			for i in range(NUM_IMAGES):
-				width = struct.unpack('<H', consumeNBytes(2))[0]
-				height = struct.unpack('<H', consumeNBytes(2))[0]
-				print("width: " + str(width) + ", height: " + str(height))
+		print("unknown + width + height consumed: " + str(totalConsumed))
+		
+		imgSize = width * height
+		im = Image.new('RGB', (width, height), (255, 255, 255))
+		draw = ImageDraw.Draw(im)
+		
+		SKIP_BYTES = 8 # originally 8
+		consumeNBytes(f, SKIP_BYTES)
+		print('arbitrary consumed: ' + str(totalConsumed))
 
-				print("unknown + width + height consumed: " + str(totalConsumed))
-				
-				imgSize = width * height
-				im = Image.new('RGB', (width, height), (255, 255, 255))
-				draw = ImageDraw.Draw(im)
-				
-				SKIP_BYTES = 8 # originally 8
-				consumeNBytes(SKIP_BYTES)
-				print('arbitrary consumed: ' + str(totalConsumed))
+		doReg('reg', f, pal, draw, width, height)
 
-				doReg('reg', width, height)
+		s = f"img/sprite_{series}_{i}.png"
+		im.save(s, quality=100)
+		print("stopped at: " + str(f.tell()))
 
-				s = f"img/sprite_{fseries}_{i}.png"
-				im.save(s, quality=100)
-				print("stopped at: " + str(f.tell()))
-			
-			# Inc the photo series.
-			fseries +=1
+def scanResource(vol):
+	global fseries
+	with open(vol, "rb") as f:
+		while (byte := consumeNBytes(f, 1)):
+			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
+				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
+				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
+				print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
+
+				processTexture(f, fseries)
+				fseries += 1
+
+if __name__ == "__main__":
+	scanResource("test_textures/peter_texture_isolated.bin")
+
+
