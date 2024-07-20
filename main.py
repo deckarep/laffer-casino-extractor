@@ -219,29 +219,34 @@ with open("test_textures/peter_texture_isolated.bin", "rb") as f:
 			print("palette consumed: " + str(totalConsumed))
 			if not os.path.exists("pal/0_Pal.png"):
 				exportPalImg()
-			
+
+			# This unknown is only right after the palette data and not for each item.
 			unknown = consumeNBytes(4)
 			logUnknown(f)
 			#print("unknown: " + str(unknown))
-			width = struct.unpack('<H', consumeNBytes(2))[0]
-			height = struct.unpack('<H', consumeNBytes(2))[0]
-			print("width: " + str(width) + ", height: " + str(height))
-
-			print("unknown + width + height consumed: " + str(totalConsumed))
 			
-			rowFactor = 19
+			# Handle each image
+			# TODO: extract NUM_IMAGES from somewhere above.
+			NUM_IMAGES = 20
+			i = 0
+			for i in range(NUM_IMAGES):
+				width = struct.unpack('<H', consumeNBytes(2))[0]
+				height = struct.unpack('<H', consumeNBytes(2))[0]
+				print("width: " + str(width) + ", height: " + str(height))
 
-			imgSize = width * (height * rowFactor)
-			im = Image.new('RGB', (width, (height * rowFactor)), (255, 255, 255))
-			draw = ImageDraw.Draw(im)
-			
-			SKIP_BYTES = 8 # originally 8
-			consumeNBytes(SKIP_BYTES)
-			print('arbitrary consumed: ' + str(totalConsumed))
+				print("unknown + width + height consumed: " + str(totalConsumed))
+				
+				imgSize = width * height
+				im = Image.new('RGB', (width, height), (255, 255, 255))
+				draw = ImageDraw.Draw(im)
+				
+				SKIP_BYTES = 8 # originally 8
+				consumeNBytes(SKIP_BYTES)
+				print('arbitrary consumed: ' + str(totalConsumed))
 
-			doReg('reg', width, (height * rowFactor))
+				doReg('reg', width, height)
 
-			s = "img/" + str(fnum) + '.png'
-			im.save(s, quality=100)
-			fnum += 1
-			print("stopped at: " + str(f.tell()))
+				s = "img/" + str(fnum) + '.png'
+				im.save(s, quality=100)
+				fnum += 1
+				print("stopped at: " + str(f.tell()))
