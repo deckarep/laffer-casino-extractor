@@ -6,7 +6,7 @@ import struct
 from PIL import Image, ImageFont, ImageDraw
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
-fnum = 0
+fseries = 0
 MAX_BYTES_TO_CONSUME = 300_000
 totalConsumed = 0
 MAX_SCAN_LINES = -10
@@ -77,7 +77,7 @@ def exportPalImg():
 			x = 0
 			y += 1
 		i += 1
-	s = "pal/" + str(fnum) + '_Pal.png'
+	s = "pal/" + str(fseries) + '_Pal.png'
 	im.save(s, quality=100)
 
 
@@ -205,7 +205,7 @@ with open("test_textures/peter_texture_isolated.bin", "rb") as f:
 		if (byte == b'\x74' and consumeNBytes(1) == b'\x65' and consumeNBytes(1) == b'\x78' and
 	  		consumeNBytes(1) == b'\x20' and consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x30' and 
 			consumeNBytes(1) == b'\x30' and consumeNBytes(1) == b'\x31'):
-			print("Found tex 0001, fnum: " + str(fnum) + " starting at: " + str(f.tell()-8))
+			print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
 
 			print("magic consumed: " + str(totalConsumed))
 			
@@ -227,6 +227,10 @@ with open("test_textures/peter_texture_isolated.bin", "rb") as f:
 			
 			# Handle each image
 			# TODO: extract NUM_IMAGES from somewhere above.
+			# Observation: subsprites in a series can have different width/height vals.
+			#	so to make it easy, I'm just generating single files and not atlases.
+			# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
+			# so it's really just 10 unique animation sprites. Verified with md5 check.
 			NUM_IMAGES = 20
 			i = 0
 			for i in range(NUM_IMAGES):
@@ -246,7 +250,9 @@ with open("test_textures/peter_texture_isolated.bin", "rb") as f:
 
 				doReg('reg', width, height)
 
-				s = "img/" + str(fnum) + '.png'
+				s = f"img/sprite_{fseries}_{i}.png"
 				im.save(s, quality=100)
-				fnum += 1
 				print("stopped at: " + str(f.tell()))
+			
+			# Inc the photo series.
+			fseries +=1
