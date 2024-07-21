@@ -11,55 +11,53 @@ MAX_SERIES_TO_EXTRACT =   5    # A negative value extracts everything!
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = 0
+imgSize = 0
 totalConsumed = 0
-
-# Observed patterns so far
-# 1. byte:00, byte:01, byte:<run count>, byte:<color idx> - used for transparency.
-# 2. Literal run pattern:
-#	[0002] - marks a literal run
-#   [byte or 2byte] - how many in the literal run
-#   [.....] - the actual bytes as color indices in the run
-# 2. 0002 after every compression run except the first? Not sure if this is for sure. 
+MAX_BYTES_TO_CONSUME = 300_000
+MAX_SCAN_LINES = -10
+exportPal = True # export palette image to pal/
+debug = True # log debug info
+scale = 100 # output image pixel size
 
 def logUnknown(f):
-	f.seek(-8, 1)
-	u2 = struct.unpack('<h', f.read(2))[0]
-	u3 = struct.unpack('<h', f.read(2))[0]
-	u4 = struct.unpack('<h', f.read(2))[0]
-	u5 = struct.unpack('<h', f.read(2))[0]
-	print("  0x310: as 4 s16: " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5))
-	f.seek(-8, 1)
-	u2 = struct.unpack('<H', f.read(2))[0]
-	u3 = struct.unpack('<H', f.read(2))[0]
-	u4 = struct.unpack('<H', f.read(2))[0]
-	u5 = struct.unpack('<H', f.read(2))[0]
-	print("  0x310: as 4 u16: " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5))
-	f.seek(-8, 1)
-	u2 = struct.unpack('<b', f.read(1))[0]
-	u3 = struct.unpack('<b', f.read(1))[0]
-	u4 = struct.unpack('<b', f.read(1))[0]
-	u5 = struct.unpack('<b', f.read(1))[0]
-	u6 = struct.unpack('<b', f.read(1))[0]
-	u7 = struct.unpack('<b', f.read(1))[0]
-	u8 = struct.unpack('<b', f.read(1))[0]
-	u9 = struct.unpack('<b', f.read(1))[0]
-	print("  0x310: as 8 s8:  " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5)+", "+str(u6)+", "+str(u7)+", "+str(u8)+", "+str(u9))
-	f.seek(-8, 1)
-	u2 = struct.unpack('<B', f.read(1))[0]
-	u3 = struct.unpack('<B', f.read(1))[0]
-	u4 = struct.unpack('<B', f.read(1))[0]
-	u5 = struct.unpack('<B', f.read(1))[0]
-	u6 = struct.unpack('<B', f.read(1))[0]
-	u7 = struct.unpack('<B', f.read(1))[0]
-	u8 = struct.unpack('<B', f.read(1))[0]
-	u9 = struct.unpack('<B', f.read(1))[0]
-	print("  0x310: as 8 u8:  " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5)+", "+str(u6)+", "+str(u7)+", "+str(u8)+", "+str(u9))
+	t = ['<h', '<H', '<b', '<B']
+	for x in t:
+		f.seek(-8, 1)
+		u = []
+		m = 0
+		i = 0
+		b = 0
+		s = ""
+		match x:
+			case '<h':
+				m = 4
+				b = 2
+				s = "4 s16"
+			case '<H':
+				m = 4
+				b = 2
+				s = "4 u16"
+			case '<b':
+				m = 8
+				b = 1
+				s = "8 s8"
+			case '<B':
+				m = 8
+				b = 1
+				s = "8 u8"
+		while (i < m):
+			u.append(struct.unpack(str(x), f.read(b))[0])
+			i += 1
+		match x:
+			case '<h' | '<H':
+				print("  0x310: as " + s + ": " + str(u[0])+", "+str(u[1])+", "+str(u[2])+", "+str(u[3]))
+			case '<b' | '<B':
+				print("  0x310: as " + s + ":  " + str(u[0])+", "+str(u[1])+", "+str(u[2])+", "+str(u[3])+", "+str(u[4])+", "+str(u[5])+", "+str(u[6])+", "+str(u[7]))
 
 def exportPalImg(f, pal):
 	i = 0
 	x = 0
 	y = 0
-	scale = 100
 	im = Image.new('RGB', (16*scale, 16*scale), (255, 255, 255))
 	draw = ImageDraw.Draw(im)
 	while (i<256):
@@ -67,17 +65,19 @@ def exportPalImg(f, pal):
 		r = pal[p]
 		g = pal[p + 1]
 		b = pal[p + 2]
-		print("idx: " + str(i) + " r: "+str(r)+", g: "+str(g)+", b: "+str(b))
 		draw.rectangle((x*scale, y*scale, x*scale+scale, y*scale+scale), fill=(r, g, b))
-		draw.text((x*scale, y*scale), str(i) + " " + hex(i), (255,255,255), font=font) # add numbers on top color
-		draw.text((x*scale, y*scale+15), str(i) + " " + hex(i), (0,0,0), font=font) # add black for higher contrast
-		draw.text((x*scale, y*scale+30), str(r) + " " + str(g) + " " + str(b), (255,255,255), font=font) # RGB white
-		draw.text((x*scale, y*scale+45), str(r) + " " + str(g) + " " + str(b), (0,0,0), font=font) # RGB black
+		if debug:
+			print("idx: " + str(i) + " r: "+str(r)+", g: "+str(g)+", b: "+str(b))
+			draw.text((x*scale, y*scale), str(i) + " " + hex(i), (255,255,255), font=font) # add numbers on top color
+			draw.text((x*scale, y*scale+15), str(i) + " " + hex(i), (0,0,0), font=font) # add black for higher contrast
+			draw.text((x*scale, y*scale+30), str(r) + " " + str(g) + " " + str(b), (255,255,255), font=font) # RGB white
+			draw.text((x*scale, y*scale+45), str(r) + " " + str(g) + " " + str(b), (0,0,0), font=font) # RGB black
 		x += 1
 		if (x > 16):
 			x = 0
 			y += 1
 		i += 1
+	os.makedirs("pal", exist_ok = True)
 	s = f"pal/pal_{fseries}.png"
 	im.save(s, quality=100)
 
@@ -149,7 +149,8 @@ def doReg(kind, f, pal, draw, width, height):
 				g = pal[p + 1]
 				b = pal[p + 2]
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
-				#print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
+				if debug:
+					print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 				# Increment x by runLen.
 				x += runLen
 			elif haveLiteralSeq:
@@ -160,7 +161,8 @@ def doReg(kind, f, pal, draw, width, height):
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
-					#print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
+					if debug:
+						print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 					x +=1
 			elif haveSingleRunNonTransparent:
 				colorIdx = consumeSingleByte(f)
@@ -180,26 +182,23 @@ def doReg(kind, f, pal, draw, width, height):
 				# print(f"else: x={x}, y={y}, byte=0x{singleByte:x}, color=HOT_PINK")
 				#x += 1
 		y += 1
-	
-	print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
+	if debug:
+		print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
 def processTexture(f, series):
-	print("magic consumed: " + str(totalConsumed))
 	i = 0
 	pal = []
 	while ( i < 768):
 		c = consumeSingleByte(f)
 		pal.append(c)
 		i += 1
-	
-	print("palette consumed: " + str(totalConsumed))
-	if not os.path.exists(f"pal/pal_{series}.png"):
+	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
 		exportPalImg(f, pal)
 
-	# This unknown is only right after the palette data and not for each item.
+	# This unknown is only right after the palette data and not for every texture.
 	unknown = consumeNBytes(f, 4)
-	logUnknown(f)
-	#print("unknown: " + str(unknown))
+	if debug:
+		logUnknown(f)
 	
 	# Handle each image
 	# TODO: extract NUM_IMAGES from somewhere above.
@@ -212,9 +211,9 @@ def processTexture(f, series):
 	for i in range(NUM_IMAGES):
 		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		print("width: " + str(width) + ", height: " + str(height))
-
-		print("unknown + width + height consumed: " + str(totalConsumed))
+		if debug:
+			print("width: " + str(width) + ", height: " + str(height))
+			print("unknown + width + height consumed: " + str(totalConsumed))
 		
 		imgSize = width * height
 		im = Image.new('RGB', (width, height), (255, 255, 255))
@@ -222,13 +221,16 @@ def processTexture(f, series):
 		
 		SKIP_BYTES = 8 # originally 8
 		consumeNBytes(f, SKIP_BYTES)
-		print('arbitrary consumed: ' + str(totalConsumed))
+		if debug:
+			print('arbitrary consumed: ' + str(totalConsumed))
 
 		doReg('reg', f, pal, draw, width, height)
 
+		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
-		print("stopped at: " + str(f.tell()))
+		if debug:
+			print("stopped at: " + str(f.tell()))
 
 def scanResource(vol):
 	global fseries
@@ -237,13 +239,11 @@ def scanResource(vol):
 			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
 				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
-
+				if debug:
+					print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
 				if fseries > MAX_SERIES_TO_EXTRACT:
 					print(f"Extracted {MAX_SERIES_TO_EXTRACT - 1} so bailing early...")
 					return
-
-				print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
-
 				processTexture(f, fseries)
 				totalConsumed = 0
 				fseries += 1
