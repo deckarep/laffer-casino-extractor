@@ -1,4 +1,4 @@
-# may need to install pillow img ext.
+# requires pillow img ext.
 # pip install --upgrade Pillow
 
 import os
@@ -10,21 +10,37 @@ MAX_SCAN_LINES =          -10  # A negative value is simply ignored.
 MAX_SERIES_TO_EXTRACT =   -5    # A negative value extracts everything!
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
-fseries = 0
-imgSize = 0
-totalConsumed = 0
+fseries = imgSize = totalConsumed = 0
+extractTextures = True # export the game images to img/
 exportPal = False # export palette image to pal/
-debug = False # log debug info
-scale = 100 # output image pixel size
+extractSound = True # export audio files to sound/
+debug = False # log additional debug info
+
+def extractAudio(file):
+	fnum = 0
+	os.makedirs("sound/"+file, exist_ok = True)
+	with open("vol/"+file, "rb") as f:
+		while (byte := f.read(1)):
+			if byte == b'\x52' and f.read(1) == b'\x49' and f.read(1) == b'\x46' and f.read(1) == b'\x46':
+				size = struct.unpack('<i', f.read(4))[0]
+				if debug:
+					print("Found RIFF starting at: ", f.tell()-4)
+					print("wav size: ", size)
+				f.seek(-8, 1)
+				wav = f.read(size+8)
+				s = "sound/" + file + "/" + str(fnum) + ".wav"
+				fnum=fnum+1
+				nf = open(s, 'bw+')
+				nf.write(wav)
+				nf.close()
+				print("saved " + s)
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
 	for x in t:
 		f.seek(-8, 1)
 		u = []
-		m = 0
-		i = 0
-		b = 0
+		m = i = b = 0
 		s = ""
 		match x:
 			case '<h':
@@ -56,6 +72,7 @@ def exportPalImg(f, pal):
 	i = 0
 	x = 0
 	y = 0
+	scale = 100 # output pixel size
 	im = Image.new('RGB', (16*scale, 16*scale), (255, 255, 255))
 	draw = ImageDraw.Draw(im)
 	while (i<256):
@@ -77,6 +94,7 @@ def exportPalImg(f, pal):
 		i += 1
 	os.makedirs("pal", exist_ok = True)
 	s = f"pal/pal_{fseries}.png"
+	print("saved " + s)
 	im.save(s, quality=100)
 
 def consumeSingleByte(f):
@@ -98,7 +116,7 @@ def unconsumeBytes(f, howMany):
 	f.seek(howMany, 1)
 	totalConsumed -= howMany
 
-def doReg(kind, f, pal, draw, width, height):
+def deRLE(f, pal, draw, width, height):
 	y = 0
 	streamPadding = 0
 	while (y < height):
@@ -193,15 +211,13 @@ def processTexture(f, series):
 	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
 		exportPalImg(f, pal)
 
-	# This unknown is only right after the palette data and not for every texture.
+	# This unknown contains texture's frame count.
 	unknown = consumeNBytes(f, 4)
 	if debug:
 		print(f"fSeries: {fseries} unknown: {unknown}")
 		print(f"unknown[2]: {unknown[2]}")
+    logUnknown(f)
 	NUM_IMAGES = unknown[2]
-
-	if debug:
-		logUnknown(f)
 	
 	# Handle each image
 	# TODO: extract NUM_IMAGES from somewhere above.
@@ -226,13 +242,12 @@ def processTexture(f, series):
 		if debug:
 			print('arbitrary consumed: ' + str(totalConsumed))
 
-		doReg('reg', f, pal, draw, width, height)
+		deRLE(f, pal, draw, width, height)
 
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
-		if debug:
-			print("stopped at: " + str(f.tell()))
+		print("saved " + s)
 
 def scanResource(vol):
 	global fseries
@@ -252,7 +267,17 @@ def scanResource(vol):
 
 if __name__ == "__main__":
 	# scanResource("test_textures/peter_texture_isolated.bin")
-	# Scanning the whole volume is not yet working... :(
-	scanResource("vol/RESOURCE.VOL")
+	if os.path.exists(f"vol/RESOURCE.VOL"):
+		if extractTextures:
+			scanResource("vol/RESOURCE.VOL")
+		if extractSound:
+			extractAudio("RESOURCE.VOL")
+	else:
+		print("ERROR: 'vol/RESOURCE.VOL' missing")
+	if os.path.exists(f"vol/audio.vol") and extractSound:
+		extractAudio("audio.vol")
+	else:
+		if extractSound:
+			print("WARN: 'vol/audio.vol' missing")
 
 
