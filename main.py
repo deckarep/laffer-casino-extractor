@@ -5,6 +5,10 @@ import os
 import struct
 from PIL import Image, ImageFont, ImageDraw
 
+MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
+MAX_SCAN_LINES =          -10  # A negative value is simply ignored.
+MAX_SERIES_TO_EXTRACT =   5    # A negative value extracts everything!
+
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = 0
 imgSize = 0
@@ -14,7 +18,6 @@ MAX_SCAN_LINES = -10
 exportPal = True # export palette image to pal/
 debug = True # log debug info
 scale = 100 # output image pixel size
-
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
@@ -80,7 +83,7 @@ def exportPalImg(f, pal):
 
 def consumeSingleByte(f):
 	global totalConsumed
-	if totalConsumed >= MAX_BYTES_TO_CONSUME:
+	if MAX_BYTES_TO_CONSUME > 0 and totalConsumed >= MAX_BYTES_TO_CONSUME:
 		raise Exception("max bytes consumed")
 	result = struct.unpack('<B', f.read(1))[0]
 	totalConsumed +=1
@@ -118,6 +121,10 @@ def doReg(kind, f, pal, draw, width, height):
 				streamPadding +=1
 				singleByte = 0
 
+			# Conjecture 1: these may be power of 2 control values
+			# 	Haven't yet seen a meaningful case for 0x4 yet.
+			# Conjecture 2: almost no difference between 0x01 and 0x08
+			#	Perhaps 0x08 allows for a WORD size runLen rather than limited to BYTE.
 			if singleByte == 0x01:
 				# Basic case: Single Color Run, often used for transparency.
 				# Next byte: <runLen>
@@ -234,11 +241,16 @@ def scanResource(vol):
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
 				if debug:
 					print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
-
+				if fseries > MAX_SERIES_TO_EXTRACT:
+					print(f"Extracted {MAX_SERIES_TO_EXTRACT - 1} so bailing early...")
+					return
 				processTexture(f, fseries)
+				totalConsumed = 0
 				fseries += 1
 
 if __name__ == "__main__":
 	scanResource("test_textures/peter_texture_isolated.bin")
+	# Scanning the whole volume is not yet working... :(
+	#scanResource("vol/RESOURCE.VOL")
 
 
