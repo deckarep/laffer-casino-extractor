@@ -5,11 +5,13 @@ import os
 import struct
 from PIL import Image, ImageFont, ImageDraw
 
+MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
+MAX_SCAN_LINES =          -10  # A negative value is simply ignored.
+MAX_SERIES_TO_EXTRACT =   5    # A negative value extracts everything!
+
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = 0
-MAX_BYTES_TO_CONSUME = 300_000
 totalConsumed = 0
-MAX_SCAN_LINES = -10
 
 # Observed patterns so far
 # 1. byte:00, byte:01, byte:<run count>, byte:<color idx> - used for transparency.
@@ -18,7 +20,6 @@ MAX_SCAN_LINES = -10
 #   [byte or 2byte] - how many in the literal run
 #   [.....] - the actual bytes as color indices in the run
 # 2. 0002 after every compression run except the first? Not sure if this is for sure. 
-
 
 def logUnknown(f):
 	f.seek(-8, 1)
@@ -82,7 +83,7 @@ def exportPalImg(f, pal):
 
 def consumeSingleByte(f):
 	global totalConsumed
-	if totalConsumed >= MAX_BYTES_TO_CONSUME:
+	if MAX_BYTES_TO_CONSUME > 0 and totalConsumed >= MAX_BYTES_TO_CONSUME:
 		raise Exception("max bytes consumed")
 	result = struct.unpack('<B', f.read(1))[0]
 	totalConsumed +=1
@@ -120,6 +121,10 @@ def doReg(kind, f, pal, draw, width, height):
 				streamPadding +=1
 				singleByte = 0
 
+			# Conjecture 1: these may be power of 2 control values
+			# 	Haven't yet seen a meaningful case for 0x4 yet.
+			# Conjecture 2: almost no difference between 0x01 and 0x08
+			#	Perhaps 0x08 allows for a WORD size runLen rather than limited to BYTE.
 			if singleByte == 0x01:
 				# Basic case: Single Color Run, often used for transparency.
 				# Next byte: <runLen>
@@ -144,7 +149,7 @@ def doReg(kind, f, pal, draw, width, height):
 				g = pal[p + 1]
 				b = pal[p + 2]
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
-				print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
+				#print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 				# Increment x by runLen.
 				x += runLen
 			elif haveLiteralSeq:
@@ -155,7 +160,7 @@ def doReg(kind, f, pal, draw, width, height):
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
-					print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
+					#print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
 					x +=1
 			elif haveSingleRunNonTransparent:
 				colorIdx = consumeSingleByte(f)
@@ -232,12 +237,20 @@ def scanResource(vol):
 			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
 				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
+
+				if fseries > MAX_SERIES_TO_EXTRACT:
+					print(f"Extracted {MAX_SERIES_TO_EXTRACT - 1} so bailing early...")
+					return
+
 				print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
 
 				processTexture(f, fseries)
+				totalConsumed = 0
 				fseries += 1
 
 if __name__ == "__main__":
 	scanResource("test_textures/peter_texture_isolated.bin")
+	# Scanning the whole volume is not yet working... :(
+	#scanResource("vol/RESOURCE.VOL")
 
 
