@@ -23,7 +23,6 @@ This game was not a traditional SCI-based game and instead was built entirely on
   3. Activate it: `source venv/bin/activate`
   4. Optional step: upgrade pip3
   5. Install the dependencies: `pip3 install -r requirements.txt`
-  6. Create a local `/img` folder and `/pal` folder.
 
 ### Usage
   0. Make sure you have a copy of the Larry Casino `RESOURCE.VOL` file.
