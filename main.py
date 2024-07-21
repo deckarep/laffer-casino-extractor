@@ -226,13 +226,12 @@ def processTexture(f, series):
 	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
 	# so it's really just 10 unique animation sprites. Verified with md5 check.
 	i = 0
-	width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-	height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 	for i in range(NUM_IMAGES):
-		if debug:
-			print("width: " + str(width) + ", height: " + str(height))
-			print("unknown + width + height consumed: " + str(totalConsumed))
-		
+		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		if width > 640 or height > 480:
+			print("ERROR: width (" + str(width) + ") or height (" + str(height) + ") exceeds expected values. Skipping cel.")
+			return
 		imgSize = width * height
 		im = Image.new('RGB', (width, height), (255, 255, 255))
 		draw = ImageDraw.Draw(im)
