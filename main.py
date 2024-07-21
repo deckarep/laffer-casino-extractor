@@ -231,8 +231,9 @@ def processTexture(f, series):
 		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if width > 640 or height > 480:
-			print("ERROR: width (" + str(width) + ") or height (" + str(height) + ") exceeds expected values. Skipping cel.")
-			return
+			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
+			continue
+		
 		imgSize = width * height
 		im = Image.new('RGB', (width, height), (255, 255, 255))
 		draw = ImageDraw.Draw(im)
