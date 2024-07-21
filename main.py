@@ -3,6 +3,7 @@
 
 import os
 import struct
+import json
 from PIL import Image, ImageFont, ImageDraw
 
 MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
@@ -268,12 +269,25 @@ def findTextures(vol):
 	print(f"Identified {len(texList)} individual textures!")
 	return texList
 
+def buildOrLoadOffsetTable():
+	CACHE_FOLDER = "cache"
+	CACHE_FILE = "tex_offset_tbl.json"
+	os.makedirs(CACHE_FOLDER, exist_ok = True)
+	if not os.path.exists(f"{CACHE_FOLDER}/{CACHE_FILE}"):
+		offTbl = findTextures(f"vol/RESOURCE.VOL")
+		with open(f'{CACHE_FOLDER}/{CACHE_FILE}', 'w') as jf:
+			json.dump(offTbl, jf, indent=4)
+			return offTbl
+	else:
+		with open(f'{CACHE_FOLDER}/{CACHE_FILE}', 'r') as jf:
+			return json.load(jf)
+
 def run():
 	# scanResource("test_textures/peter_texture_isolated.bin")
 	if os.path.exists(f"vol/RESOURCE.VOL"):
 		if extractTextures:
-			resTextures = findTextures(f"vol/RESOURCE.VOL")
-			processTextureList(resTextures, f"vol/RESOURCE.VOL")
+			offTbl = buildOrLoadOffsetTable()
+			processTextureList(offTbl, f"vol/RESOURCE.VOL")
 		if extractSound:
 			extractAudio("RESOURCE.VOL")
 	else:
