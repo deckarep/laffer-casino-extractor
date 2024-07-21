@@ -7,13 +7,14 @@ from PIL import Image, ImageFont, ImageDraw
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = 0
-MAX_BYTES_TO_CONSUME = 300_000
-totalConsumed = 0
-MAX_SCAN_LINES = -10
-exportPal = False
-debug = False
-scale = 100 # output image pixel size
 imgSize = 0
+totalConsumed = 0
+MAX_BYTES_TO_CONSUME = 300_000
+MAX_SCAN_LINES = -10
+exportPal = True # export palette image to pal/
+debug = True # log debug info
+scale = 100 # output image pixel size
+
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
@@ -76,27 +77,6 @@ def exportPalImg(pal):
 	os.makedirs("pal", exist_ok = True)
 	s = "pal/" + str(fseries) + '_Pal.png'
 	im.save(s, quality=100)
-
-	x = 0
-	y = 0
-	while ((x * y) < 255):
-		#repeat = struct.unpack('<B', f.read(1))[0]
-		#color = struct.unpack('<B', f.read(1))[0]
-		#print("repeat: "+str(repeat)+", color: "+str(color))
-		p = x * y * 3
-		r = pal[p]
-		g = pal[p + 1]
-		b = pal[p + 2]
-		#print ("r: " + str(r) + ", g: " + str(g) + ", b: " + str(b))
-		i = 0
-		while (i < 254):
-			draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
-			i += 1
-			x += 1
-			if (x > 16):
-				x = 0
-				y += 1
-
 
 def consumeSingleByte(f):
 	global totalConsumed
