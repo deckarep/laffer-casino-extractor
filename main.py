@@ -51,7 +51,7 @@ def logUnknown(f):
 			case '<b' | '<B':
 				print("  0x310: as " + s + ":  " + str(u[0])+", "+str(u[1])+", "+str(u[2])+", "+str(u[3])+", "+str(u[4])+", "+str(u[5])+", "+str(u[6])+", "+str(u[7]))
 
-def exportPalImg(pal):
+def exportPalImg(f, pal):
 	i = 0
 	x = 0
 	y = 0
@@ -75,7 +75,7 @@ def exportPalImg(pal):
 			y += 1
 		i += 1
 	os.makedirs("pal", exist_ok = True)
-	s = "pal/" + str(fseries) + '_Pal.png'
+	s = f"pal/pal_{fseries}.png"
 	im.save(s, quality=100)
 
 def consumeSingleByte(f):
@@ -186,7 +186,7 @@ def processTexture(f, series):
 		pal.append(c)
 		i += 1
 	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
-		exportPalImg(pal)
+		exportPalImg(f, pal)
 
 	# This unknown is only right after the palette data and not for every texture.
 	unknown = consumeNBytes(f, 4)
