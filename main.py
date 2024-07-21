@@ -196,6 +196,11 @@ def processTexture(f, series):
 	# This unknown is only right after the palette data and not for every texture.
 	unknown = consumeNBytes(f, 4)
 	if debug:
+		print(f"fSeries: {fseries} unknown: {unknown}")
+		print(f"unknown[2]: {unknown[2]}")
+	NUM_IMAGES = unknown[2]
+
+	if debug:
 		logUnknown(f)
 	
 	# Handle each image
@@ -204,11 +209,10 @@ def processTexture(f, series):
 	#	so to make it easy, I'm just generating single files and not atlases.
 	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
 	# so it's really just 10 unique animation sprites. Verified with md5 check.
-	NUM_IMAGES = 1 # need to get this number from the texture's header somehow
 	i = 0
+	width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+	height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 	for i in range(NUM_IMAGES):
-		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if debug:
 			print("width: " + str(width) + ", height: " + str(height))
 			print("unknown + width + height consumed: " + str(totalConsumed))
