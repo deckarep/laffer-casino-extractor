@@ -15,7 +15,6 @@ imgSize = 0
 totalConsumed = 0
 exportPal = False # export palette image to pal/
 debug = False # log debug info
-scale = 100 # output image pixel size
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
@@ -56,6 +55,7 @@ def exportPalImg(f, pal):
 	i = 0
 	x = 0
 	y = 0
+	scale = 100 # output pixel size
 	im = Image.new('RGB', (16*scale, 16*scale), (255, 255, 255))
 	draw = ImageDraw.Draw(im)
 	while (i<256):
@@ -193,15 +193,13 @@ def processTexture(f, series):
 	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
 		exportPalImg(f, pal)
 
-	# This unknown is only right after the palette data and not for every texture.
+	# This unknown contains texture's frame count.
 	unknown = consumeNBytes(f, 4)
 	if debug:
 		print(f"fSeries: {fseries} unknown: {unknown}")
 		print(f"unknown[2]: {unknown[2]}")
-	NUM_IMAGES = unknown[2]
-
-	if debug:
 		logUnknown(f)
+	NUM_IMAGES = unknown[2]
 	
 	# Handle each image
 	# TODO: extract NUM_IMAGES from somewhere above.
@@ -231,6 +229,7 @@ def processTexture(f, series):
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
+		print("saved " + s)
 		if debug:
 			print("stopped at: " + str(f.tell()))
 
