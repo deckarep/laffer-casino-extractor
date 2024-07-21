@@ -14,7 +14,25 @@ fseries = 0
 imgSize = 0
 totalConsumed = 0
 exportPal = False # export palette image to pal/
+extractSound = True # export audio files
 debug = False # log debug info
+
+def extractAudio(file):
+	fnum = 0
+	os.makedirs("sound/"+file, exist_ok = True)
+	with open("vol/"+file, "rb") as f:
+		while (byte := f.read(1)):
+			if byte == b'\x52' and f.read(1) == b'\x49' and f.read(1) == b'\x46' and f.read(1) == b'\x46':
+				print("Found RIFF starting at: ", f.tell()-4)
+				size = struct.unpack('<i', f.read(4))[0]
+				print("wav size: ", size)
+				f.seek(-8, 1)
+				wav = f.read(size+8)
+				s = str(fnum) + ".wav"
+				fnum=fnum+1
+				nf = open("sound/" + file + "/" + s, 'bw+')
+				nf.write(wav)
+				nf.close()
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
@@ -251,7 +269,17 @@ def scanResource(vol):
 
 if __name__ == "__main__":
 	# scanResource("test_textures/peter_texture_isolated.bin")
-	# Scanning the whole volume is not yet working... :(
-	scanResource("vol/RESOURCE.VOL")
+	if os.path.exists(f"vol/RESOURCE.VOL"):
+		scanResource("vol/RESOURCE.VOL")
+		if extractSound:
+			extractAudio("RESOURCE.VOL")
+	else:
+		print("ERROR: 'vol/RESOURCE.VOL' missing")
+	if os.path.exists(f"vol/audio.vol") and extractSound:
+		extractAudio("audio.vol")
+	else:
+		if extractSound:
+			print("WARN: 'vol/audio.vol' missing")
+
 
 
