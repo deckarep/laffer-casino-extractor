@@ -216,7 +216,7 @@ def processTexture(f, series):
 	if debug:
 		print(f"fSeries: {fseries} unknown: {unknown}")
 		print(f"unknown[2]: {unknown[2]}")
-		logUnknown(f)
+    logUnknown(f)
 	NUM_IMAGES = unknown[2]
 	
 	# Handle each image
@@ -279,6 +279,5 @@ if __name__ == "__main__":
 	else:
 		if extractSound:
 			print("WARN: 'vol/audio.vol' missing")
-
 
 
