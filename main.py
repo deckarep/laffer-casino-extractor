@@ -7,16 +7,14 @@ from PIL import Image, ImageFont, ImageDraw
 
 MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
 MAX_SCAN_LINES =          -10  # A negative value is simply ignored.
-MAX_SERIES_TO_EXTRACT =   5    # A negative value extracts everything!
+MAX_SERIES_TO_EXTRACT =   -5    # A negative value extracts everything!
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = 0
 imgSize = 0
 totalConsumed = 0
-MAX_BYTES_TO_CONSUME = 300_000
-MAX_SCAN_LINES = -10
-exportPal = True # export palette image to pal/
-debug = True # log debug info
+exportPal = False # export palette image to pal/
+debug = False # log debug info
 scale = 100 # output image pixel size
 
 def logUnknown(f):
@@ -206,7 +204,7 @@ def processTexture(f, series):
 	#	so to make it easy, I'm just generating single files and not atlases.
 	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
 	# so it's really just 10 unique animation sprites. Verified with md5 check.
-	NUM_IMAGES = 20
+	NUM_IMAGES = 1 # need to get this number from the texture's header somehow
 	i = 0
 	for i in range(NUM_IMAGES):
 		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
@@ -241,7 +239,7 @@ def scanResource(vol):
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
 				if debug:
 					print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
-				if fseries > MAX_SERIES_TO_EXTRACT:
+				if fseries > MAX_SERIES_TO_EXTRACT and not MAX_SERIES_TO_EXTRACT < 0:
 					print(f"Extracted {MAX_SERIES_TO_EXTRACT - 1} so bailing early...")
 					return
 				processTexture(f, fseries)
@@ -249,8 +247,8 @@ def scanResource(vol):
 				fseries += 1
 
 if __name__ == "__main__":
-	scanResource("test_textures/peter_texture_isolated.bin")
+	# scanResource("test_textures/peter_texture_isolated.bin")
 	# Scanning the whole volume is not yet working... :(
-	#scanResource("vol/RESOURCE.VOL")
+	scanResource("vol/RESOURCE.VOL")
 
 
