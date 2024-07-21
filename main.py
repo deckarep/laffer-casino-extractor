@@ -248,30 +248,32 @@ def processTexture(f, series):
 		im.save(s, quality=100)
 		print("saved " + s)
 
-def scanResource(vol):
+def processTextureList(texList, vol):
 	global fseries
-	l = 0
+	with open(vol, 'rb') as f:
+		for offset in texList:
+			f.seek(offset, 0)
+			processTexture(f, fseries)
+			fseries +=1
+
+def findTextures(vol):
+	print("Scanning textures, please wait...")
+	texList = []
 	with open(vol, "rb") as f:
 		while (byte := consumeNBytes(f, 1)):
 			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
 				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
-				l = f.tell()
-				if debug:
-					print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
-				if fseries > MAX_SERIES_TO_EXTRACT and MAX_SERIES_TO_EXTRACT > -1:
-					print(f"Extracted {MAX_SERIES_TO_EXTRACT - 1} so bailing early...")
-					return
-				processTexture(f, fseries)
-				totalConsumed = 0
-				fseries += 1
-				f.seek(l+8)
+				texList.append(f.tell())
+	print(f"Identified {len(texList)} individual textures!")
+	return texList
 
-if __name__ == "__main__":
+def run():
 	# scanResource("test_textures/peter_texture_isolated.bin")
 	if os.path.exists(f"vol/RESOURCE.VOL"):
 		if extractTextures:
-			scanResource("vol/RESOURCE.VOL")
+			resTextures = findTextures(f"vol/RESOURCE.VOL")
+			processTextureList(resTextures, f"vol/RESOURCE.VOL")
 		if extractSound:
 			extractAudio("RESOURCE.VOL")
 	else:
@@ -282,4 +284,6 @@ if __name__ == "__main__":
 		if extractSound:
 			print("WARN: 'vol/audio.vol' missing")
 
+if __name__ == "__main__":
+	run()
 
