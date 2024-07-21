@@ -6,8 +6,8 @@ import struct
 from PIL import Image, ImageFont, ImageDraw
 
 MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
-MAX_SCAN_LINES =          -10  # A negative value is simply ignored.
-MAX_SERIES_TO_EXTRACT =   -5    # A negative value extracts everything!
+MAX_SCAN_LINES =          -10   # A negative value is simply ignored.
+MAX_SERIES_TO_EXTRACT =   924   # A negative value extracts everything!
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fseries = imgSize = totalConsumed = 0
@@ -216,7 +216,7 @@ def processTexture(f, series):
 	if debug:
 		print(f"fSeries: {fseries} unknown: {unknown}")
 		print(f"unknown[2]: {unknown[2]}")
-    logUnknown(f)
+		logUnknown(f)
 	NUM_IMAGES = unknown[2]
 	
 	# Handle each image
@@ -251,11 +251,13 @@ def processTexture(f, series):
 
 def scanResource(vol):
 	global fseries
+	l = 0
 	with open(vol, "rb") as f:
 		while (byte := consumeNBytes(f, 1)):
 			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
 				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
 				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
+				l = f.tell()
 				if debug:
 					print("Found tex 0001, fnum: " + str(fseries) + " starting at: " + str(f.tell()-8))
 				if fseries > MAX_SERIES_TO_EXTRACT and MAX_SERIES_TO_EXTRACT > -1:
@@ -264,6 +266,7 @@ def scanResource(vol):
 				processTexture(f, fseries)
 				totalConsumed = 0
 				fseries += 1
+				f.seek(l+8)
 
 if __name__ == "__main__":
 	# scanResource("test_textures/peter_texture_isolated.bin")
