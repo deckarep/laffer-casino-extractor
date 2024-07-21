@@ -54,7 +54,7 @@ def logUnknown(f):
 	u9 = struct.unpack('<B', f.read(1))[0]
 	print("  0x310: as 8 u8:  " + str(u2)+", "+str(u3)+", "+str(u4)+", "+str(u5)+", "+str(u6)+", "+str(u7)+", "+str(u8)+", "+str(u9))
 
-def exportPalImg(pal):
+def exportPalImg(f, pal):
 	i = 0
 	x = 0
 	y = 0
@@ -77,29 +77,29 @@ def exportPalImg(pal):
 			x = 0
 			y += 1
 		i += 1
-	s = "pal/" + str(fseries) + '_Pal.png'
+	s = f"pal/pal_{fseries}.png"
 	im.save(s, quality=100)
 
-	x = 0
-	y = 0
-	print("imgSize: "+str(imgSize))
-	while ((x * y) < imgSize):
-		repeat = struct.unpack('<B', f.read(1))[0]
-		color = struct.unpack('<B', f.read(1))[0]
-		#print("repeat: "+str(repeat)+", color: "+str(color))
-		p = color * 3
-		r = pal[p]
-		g = pal[p + 1]
-		b = pal[p + 2]
-		#print ("r: " + str(r) + ", g: " + str(g) + ", b: " + str(b))
-		i = 0
-		while (i < repeat):
-			draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
-			i += 1
-			x += 1
-			if (x > width):
-				x = 0
-				y += 1
+	# x = 0
+	# y = 0
+	# print("imgSize: "+str(imgSize))
+	# while ((x * y) < imgSize):
+	# 	repeat = struct.unpack('<B', f.read(1))[0]
+	# 	color = struct.unpack('<B', f.read(1))[0]
+	# 	#print("repeat: "+str(repeat)+", color: "+str(color))
+	# 	p = color * 3
+	# 	r = pal[p]
+	# 	g = pal[p + 1]
+	# 	b = pal[p + 2]
+	# 	#print ("r: " + str(r) + ", g: " + str(g) + ", b: " + str(b))
+	# 	i = 0
+	# 	while (i < repeat):
+	# 		draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
+	# 		i += 1
+	# 		x += 1
+	# 		if (x > width):
+	# 			x = 0
+	# 			y += 1
 
 
 def consumeSingleByte(f):
@@ -210,8 +210,8 @@ def processTexture(f, series):
 		i += 1
 	
 	print("palette consumed: " + str(totalConsumed))
-	if not os.path.exists(f"pal/{series}_Pal.png"):
-		exportPalImg(pal)
+	if not os.path.exists(f"pal/pal_{series}.png"):
+		exportPalImg(f, pal)
 
 	# This unknown is only right after the palette data and not for each item.
 	unknown = consumeNBytes(f, 4)
