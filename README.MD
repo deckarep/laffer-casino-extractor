@@ -18,5 +18,13 @@ This version of Larry's Casino should not be be confused with the older SCI-base
 This game was not a traditional SCI-based game and instead was built entirely on Windows 98 making use of DirectX, and GDI for rendering to the screen. It also had an online component that connected to Sierra's W.O.N. multi-player system which stands for World Opponent Network which is now defunct. W.O.N. was quite innovative for its time and helped fascilitate the push for online gaming as we know it today. Other efforts by Sierra also might be memorable: T.S.N - The Sierra Network and The Realm.
 
 ### Installing
+  1. Clone this repo
+  2. Create the Python3 virtualenv: `python3 -m venv venv`
+  3. Activate it: `source venv/bin/activate`
+  4. Optional step: upgrade pip3
+  5. Install the dependencies: `pip3 install -r requirements.txt`
+  6. Create a local `/img` folder and `/pal` folder.
 
 ### Usage
+  0. Make sure you have a copy of the Larry Casino `RESOURCE.VOL` file.
+  1. Run: `python3 main.py`
