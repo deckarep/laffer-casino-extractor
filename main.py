@@ -80,28 +80,6 @@ def exportPalImg(f, pal):
 	s = f"pal/pal_{fseries}.png"
 	im.save(s, quality=100)
 
-	# x = 0
-	# y = 0
-	# print("imgSize: "+str(imgSize))
-	# while ((x * y) < imgSize):
-	# 	repeat = struct.unpack('<B', f.read(1))[0]
-	# 	color = struct.unpack('<B', f.read(1))[0]
-	# 	#print("repeat: "+str(repeat)+", color: "+str(color))
-	# 	p = color * 3
-	# 	r = pal[p]
-	# 	g = pal[p + 1]
-	# 	b = pal[p + 2]
-	# 	#print ("r: " + str(r) + ", g: " + str(g) + ", b: " + str(b))
-	# 	i = 0
-	# 	while (i < repeat):
-	# 		draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
-	# 		i += 1
-	# 		x += 1
-	# 		if (x > width):
-	# 			x = 0
-	# 			y += 1
-
-
 def consumeSingleByte(f):
 	global totalConsumed
 	if totalConsumed >= MAX_BYTES_TO_CONSUME:
