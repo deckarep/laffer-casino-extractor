@@ -17,6 +17,10 @@ exportPal = False # export palette image to pal/
 extractSound = True # export audio files to sound/
 debug = False # log additional debug info
 
+# Counters
+cels_extracted = 0
+warn_cels_skipped = 0
+
 def extractAudio(file):
 	fnum = 0
 	os.makedirs("sound/"+file, exist_ok = True)
@@ -203,6 +207,8 @@ def deRLE(f, pal, draw, width, height):
 		print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
 def processTexture(f, series):
+	textureOffset = f.tell()
+	
 	i = 0
 	pal = []
 	while ( i < 768):
@@ -232,6 +238,8 @@ def processTexture(f, series):
 		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if width > 640 or height > 480:
 			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
+			global warn_cels_skipped
+			warn_cels_skipped +=1
 			continue
 		
 		imgSize = width * height
@@ -248,12 +256,18 @@ def processTexture(f, series):
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
-		print("saved " + s)
+		print(f"saved {s} from origin offset: 0x{textureOffset:x}")
+		global cels_extracted
+		cels_extracted +=1
 
 def processTextureList(texList, vol):
 	global fseries
 	with open(vol, 'rb') as f:
-		for offset in texList:
+		for i, offset in enumerate(texList):
+			# Caveat: the last texture offset gets stuck.
+			if i == 925:
+				print("Stopping at 925th texture offset cause it gets stuck...")
+				return
 			f.seek(offset, 0)
 			processTexture(f, fseries)
 			fseries +=1
@@ -289,6 +303,7 @@ def run():
 		if extractTextures:
 			offTbl = buildOrLoadOffsetTable()
 			processTextureList(offTbl, f"vol/RESOURCE.VOL")
+			print(f"Summary - Total Series: {fseries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
 		if extractSound:
 			extractAudio("RESOURCE.VOL")
 	else:
