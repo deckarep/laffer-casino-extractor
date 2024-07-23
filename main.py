@@ -221,14 +221,14 @@ def processTexture(f, series):
 		NUM_IMAGES = unknown[2] # could NUM_IMAGES acutally be a WORD?
 		SKIP_BYTES = 8
 	elif (unknown[0] == 10):
-		# "0x0A" These seem to only be small character portraits
+		# "0x0A" small character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = next2Bytes[0] # is this correct?
+		NUM_IMAGES = 10 #need to find the correct frame count for 0x0A and 0x11 cels
 		SKIP_BYTES = 6
 	elif (unknown[0] == 17):
-		# "0x11"  large character portraits
+		# "0x11" large character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = next2Bytes[0] # missing animation frames? Investigate
+		NUM_IMAGES = 10
 		SKIP_BYTES = 6
 	
 	# Handle each image
@@ -238,9 +238,14 @@ def processTexture(f, series):
 	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
 	# so it's really just 10 unique animation sprites. Verified with md5 check.
 	i = 0
+	width = height = 0
 	for i in range(NUM_IMAGES):
-		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		if (unknown[0] == 10 or unknown[0] == 17) and not i == 0:
+			# 0x0A and 0x11 cels seem to have consistent width/heigh; reuse inital value
+			pass
+		else:
+			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if width > 640 or height > 480:
 			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
 			global warn_cels_skipped
