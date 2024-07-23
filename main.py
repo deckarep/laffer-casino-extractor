@@ -14,7 +14,7 @@ font = ImageFont.truetype("SQ3n001.ttf", 25)
 fSeries = totalConsumed = 0
 extractTextures = True # export the game images to img/
 exportPal = False # export palette image to pal/
-extractSound = True # export audio files to sound/
+extractSound = False # export audio files to sound/
 debug = False # log additional debug info
 
 # Counters
@@ -212,7 +212,23 @@ def processTexture(f, series):
 	unknown = consumeNBytes(f, 4)
 	if debug:
 		logUnknown(f)
-	NUM_IMAGES = unknown[2]
+
+	# The possible values of the first byte in unknown are: 1, 10 & 17 
+	NUM_IMAGES = 0
+	SKIP_BYTES = 0
+	if (unknown[0] == 1):
+		# "0x01"
+		NUM_IMAGES = unknown[2] # could NUM_IMAGES acutally be a WORD?
+		SKIP_BYTES = 8
+	elif (unknown[0] == 10):
+		# "0x0A"
+		# skip for now, needs investigating
+		pass
+	elif (unknown[0] == 17):
+		# "0x11"
+		next2Bytes = consumeNBytes(f, 2)
+		NUM_IMAGES = next2Bytes[0] # is this correct? Shouldn't 906 have animation frames?
+		SKIP_BYTES = 6
 	
 	# Handle each image
 	# TODO: extract NUM_IMAGES from somewhere above.
@@ -233,7 +249,6 @@ def processTexture(f, series):
 		im = Image.new('RGB', (width, height), (255, 255, 255))
 		draw = ImageDraw.Draw(im)
 		
-		SKIP_BYTES = 8 # originally 8
 		consumeNBytes(f, SKIP_BYTES)
 		if debug:
 			print('arbitrary consumed: ' + str(totalConsumed))
