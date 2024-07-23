@@ -221,13 +221,14 @@ def processTexture(f, series):
 		NUM_IMAGES = unknown[2] # could NUM_IMAGES acutally be a WORD?
 		SKIP_BYTES = 8
 	elif (unknown[0] == 10):
-		# "0x0A"
-		# skip for now, needs investigating
-		pass
-	elif (unknown[0] == 17):
-		# "0x11"
+		# "0x0A" These seem to only be small character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = next2Bytes[0] # is this correct? Shouldn't 906 have animation frames?
+		NUM_IMAGES = next2Bytes[0] # is this correct?
+		SKIP_BYTES = 6
+	elif (unknown[0] == 17):
+		# "0x11"  large character portraits
+		next2Bytes = consumeNBytes(f, 2)
+		NUM_IMAGES = next2Bytes[0] # missing animation frames? Investigate
 		SKIP_BYTES = 6
 	
 	# Handle each image
