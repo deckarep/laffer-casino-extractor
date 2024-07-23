@@ -11,7 +11,7 @@ MAX_SCAN_LINES =          -10   # A negative value is simply ignored.
 MAX_SERIES_TO_EXTRACT =   924   # A negative value extracts everything!
 
 font = ImageFont.truetype("SQ3n001.ttf", 25)
-fseries = imgSize = totalConsumed = 0
+fSeries = totalConsumed = 0
 extractTextures = True # export the game images to img/
 exportPal = False # export palette image to pal/
 extractSound = True # export audio files to sound/
@@ -73,33 +73,23 @@ def logUnknown(f):
 			case '<b' | '<B':
 				print("  0x310: as " + s + ":  " + str(u[0])+", "+str(u[1])+", "+str(u[2])+", "+str(u[3])+", "+str(u[4])+", "+str(u[5])+", "+str(u[6])+", "+str(u[7]))
 
-def exportPalImg(f, pal):
-	i = 0
-	x = 0
-	y = 0
-	scale = 100 # output pixel size
-	im = Image.new('RGB', (16*scale, 16*scale), (255, 255, 255))
+def exportPalImg(series, pal):
+	i = x = y = 0
+	im = Image.new('RGB', (16, 16), (255, 255, 255))
 	draw = ImageDraw.Draw(im)
 	while (i<256):
 		p = i * 3
 		r = pal[p]
 		g = pal[p + 1]
 		b = pal[p + 2]
-		draw.rectangle((x*scale, y*scale, x*scale+scale, y*scale+scale), fill=(r, g, b))
-		if debug:
-			print("idx: " + str(i) + " r: "+str(r)+", g: "+str(g)+", b: "+str(b))
-			draw.text((x*scale, y*scale), str(i) + " " + hex(i), (255,255,255), font=font) # add numbers on top color
-			draw.text((x*scale, y*scale+15), str(i) + " " + hex(i), (0,0,0), font=font) # add black for higher contrast
-			draw.text((x*scale, y*scale+30), str(r) + " " + str(g) + " " + str(b), (255,255,255), font=font) # RGB white
-			draw.text((x*scale, y*scale+45), str(r) + " " + str(g) + " " + str(b), (0,0,0), font=font) # RGB black
+		draw.rectangle((x, y, x+1, y+1), fill=(r, g, b))
 		x += 1
 		if (x > 16):
 			x = 0
 			y += 1
 		i += 1
 	os.makedirs("pal", exist_ok = True)
-	s = f"pal/pal_{fseries}.png"
-	print("saved " + s)
+	s = f"pal/pal_{series}.png"
 	im.save(s, quality=100)
 
 def consumeSingleByte(f):
@@ -216,13 +206,11 @@ def processTexture(f, series):
 		pal.append(c)
 		i += 1
 	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
-		exportPalImg(f, pal)
+		exportPalImg(series, pal)
 
-	# This unknown contains texture's frame count.
+	# This unknown sometimes contains texture's frame count.
 	unknown = consumeNBytes(f, 4)
 	if debug:
-		print(f"fSeries: {fseries} unknown: {unknown}")
-		print(f"unknown[2]: {unknown[2]}")
 		logUnknown(f)
 	NUM_IMAGES = unknown[2]
 	
@@ -242,7 +230,6 @@ def processTexture(f, series):
 			warn_cels_skipped +=1
 			continue
 		
-		imgSize = width * height
 		im = Image.new('RGB', (width, height), (255, 255, 255))
 		draw = ImageDraw.Draw(im)
 		
@@ -261,7 +248,7 @@ def processTexture(f, series):
 		cels_extracted +=1
 
 def processTextureList(texList, vol):
-	global fseries
+	global fSeries
 	with open(vol, 'rb') as f:
 		for i, offset in enumerate(texList):
 			# Caveat: the last texture offset gets stuck.
@@ -269,8 +256,8 @@ def processTextureList(texList, vol):
 				print("Stopping at 925th texture offset cause it gets stuck...")
 				return
 			f.seek(offset, 0)
-			processTexture(f, fseries)
-			fseries +=1
+			processTexture(f, fSeries)
+			fSeries +=1
 
 def findTextures(vol):
 	print("Scanning textures, please wait...")
@@ -296,14 +283,25 @@ def buildOrLoadOffsetTable():
 	else:
 		with open(f'{CACHE_FOLDER}/{CACHE_FILE}', 'r') as jf:
 			return json.load(jf)
+		
+def extractBin(offTbl, n):
+	# quick and dirty
+	with open("vol/RESOURCE.VOL", 'rb') as f:
+		f.seek(offTbl[n]-8)
+		b = f.read(offTbl[n+1]-offTbl[n])
+		s = "test_textures/" + str(n) + ".bin"
+		nf = open(s, 'bw+')
+		nf.write(b)
+		nf.close()
 
 def run():
 	# scanResource("test_textures/peter_texture_isolated.bin")
 	if os.path.exists(f"vol/RESOURCE.VOL"):
 		if extractTextures:
 			offTbl = buildOrLoadOffsetTable()
+			#extractBin(offTbl, 906)
 			processTextureList(offTbl, f"vol/RESOURCE.VOL")
-			print(f"Summary - Total Series: {fseries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
+			print(f"Summary - Total Series: {fSeries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
 		if extractSound:
 			extractAudio("RESOURCE.VOL")
 	else:
