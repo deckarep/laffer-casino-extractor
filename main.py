@@ -21,6 +21,16 @@ debug = False # log additional debug info
 cels_extracted = 0
 warn_cels_skipped = 0
 
+def print_alignments(n):
+	alignments = [2, 4, 8, 16, 32]
+	results = []
+	for alignment in alignments:
+		if n % alignment == 0:
+			results.append(f"✅ {alignment}")
+	if len(results) == 0:
+		results.append("(NO ALIGNMENT)")
+	print(f"Number: {n}, " + ", ".join(results))
+
 def extractAudio(file):
 	fnum = 0
 	os.makedirs("sound/"+file, exist_ok = True)
@@ -111,7 +121,7 @@ def unconsumeBytes(f, howMany):
 	f.seek(howMany, 1)
 	totalConsumed -= howMany
 
-def deRLE(f, pal, draw, width, height):
+def doRLE(f, pal, draw, width, height):
 	y = 0
 	streamPadding = 0
 	while (y < height):
@@ -259,7 +269,7 @@ def processTexture(f, series):
 		if debug:
 			print('arbitrary consumed: ' + str(totalConsumed))
 
-		deRLE(f, pal, draw, width, height)
+		doRLE(f, pal, draw, width, height)
 
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
