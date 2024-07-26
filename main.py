@@ -206,6 +206,34 @@ def doRLE(f, pal, draw, width, height):
 	if debug:
 		print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
+def doNumImages(SKIP_BYTES, NUM_IMAGES, f, pal, series, textureOffset, loop):
+	for i in range(NUM_IMAGES):
+			print(f"  starting cel {i} at {f.tell()-textureOffset+8}")
+			print(f"NUM_IMAGES is {NUM_IMAGES}")
+			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+			if width > 640 or height > 480:
+				print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
+				global warn_cels_skipped
+				warn_cels_skipped +=1
+				continue
+			
+			im = Image.new('RGB', (width, height), (255, 255, 255))
+			draw = ImageDraw.Draw(im)
+			
+			consumeNBytes(f, SKIP_BYTES)
+			if debug:
+				print('arbitrary consumed: ' + str(totalConsumed))
+
+			doRLE(f, pal, draw, width, height)
+
+			os.makedirs("img", exist_ok = True)
+			s = f"img/sprite_{series}_{loop}_{i}.png"
+			im.save(s, quality=100)
+			#print(f"saved {s} from origin offset: 0x{textureOffset:x}")
+			global cels_extracted
+			cels_extracted +=1
+
 def processTexture(f, series):
 	textureOffset = f.tell()
 	
@@ -226,20 +254,21 @@ def processTexture(f, series):
 	# The possible values of the first byte in unknown are: 1, 10 & 17 
 	NUM_IMAGES = 0
 	SKIP_BYTES = 0
+	IS_PORTRAIT = 0
 	if (unknown[0] == 1):
 		# "0x01"
 		NUM_IMAGES = unknown[2] # could NUM_IMAGES acutally be a WORD?
 		SKIP_BYTES = 8
 	elif (unknown[0] == 10):
 		# "0x0A" small character portraits
-		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = 10 #need to find the correct frame count for 0x0A and 0x11 cels
+		NUM_IMAGES = consumeNBytes(f, 2)[0]
 		SKIP_BYTES = 6
+		IS_PORTRAIT = 0 #0 for testing, normally 1
 	elif (unknown[0] == 17):
 		# "0x11" large character portraits
-		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = 10
+		NUM_IMAGES = consumeNBytes(f, 2)[0]
 		SKIP_BYTES = 6
+		IS_PORTRAIT = 1
 	
 	# Handle each image
 	# TODO: extract NUM_IMAGES from somewhere above.
@@ -248,35 +277,24 @@ def processTexture(f, series):
 	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
 	# so it's really just 10 unique animation sprites. Verified with md5 check.
 	i = 0
-	width = height = 0
-	for i in range(NUM_IMAGES):
-		if (unknown[0] == 10 or unknown[0] == 17) and not i == 0:
-			# 0x0A and 0x11 cels seem to have consistent width/heigh; reuse inital value
-			pass
-		else:
-			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		if width > 640 or height > 480:
-			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
-			global warn_cels_skipped
-			warn_cels_skipped +=1
-			continue
-		
-		im = Image.new('RGB', (width, height), (255, 255, 255))
-		draw = ImageDraw.Draw(im)
-		
-		consumeNBytes(f, SKIP_BYTES)
-		if debug:
-			print('arbitrary consumed: ' + str(totalConsumed))
+	width = height = loop = 0
+	print(f"series {series}")
+	if IS_PORTRAIT:
+		nextByte = NUM_IMAGES
+		# while nextByte is less than 't', which might indicate a new series
+		while (nextByte < 116):
+			doNumImages(SKIP_BYTES, NUM_IMAGES, f, pal, series, textureOffset, loop)
+			nextByte = consumeNBytes(f, 2)[0]
+			# account for 32 bit cel count
+			if (nextByte == '\0x00'):
+				nextByte = consumeNBytes(f, 2)
+			NUM_IMAGES = nextByte
+			loop += 1
 
-		doRLE(f, pal, draw, width, height)
+	else:
+		#doNumImages(SKIP_BYTES, NUM_IMAGES, f, pal, series, textureOffset, loop)
+		pass
 
-		os.makedirs("img", exist_ok = True)
-		s = f"img/sprite_{series}_{i}.png"
-		im.save(s, quality=100)
-		print(f"saved {s} from origin offset: 0x{textureOffset:x}")
-		global cels_extracted
-		cels_extracted +=1
 
 def processTextureList(texList, vol):
 	global fSeries
@@ -330,7 +348,7 @@ def run():
 	if os.path.exists(f"vol/RESOURCE.VOL"):
 		if extractTextures:
 			offTbl = buildOrLoadOffsetTable()
-			#extractBin(offTbl, 906)
+			extractBin(offTbl, 908)
 			processTextureList(offTbl, f"vol/RESOURCE.VOL")
 			print(f"Summary - Total Series: {fSeries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
 		if extractSound:
