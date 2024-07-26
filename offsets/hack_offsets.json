@@ -1,5 +1,12 @@
 {
     "note": "add more character portrait series here",
+    "898": {
+        "name": "Drew Baringmore",
+        "note": "incomplete, 56 won't render correctly and I can't figure out why",
+        "total_cels": 65,
+        "2": [0, 2, 4, 7, 9, 12, 16, 19, 21, 24, 35],
+        "4": [23, 54, 55]
+    },
     "904": {
         "name": "Captain Thygh",
         "total_cels": 72,

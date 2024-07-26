@@ -263,6 +263,7 @@ def processTexture(f, series):
 	i = 0
 	width = height = 0
 	for i in range(NUM_IMAGES):
+		celOffset = f.tell()
 		if (unknown[0] == 10 or unknown[0] == 17) and not i == 0:
 			# 0x0A and 0x11 cels seem to have consistent width/heigh; reuse inital value
 			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
@@ -288,7 +289,7 @@ def processTexture(f, series):
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
-		print(f"saved {s} from origin offset: 0x{textureOffset:x}")
+		print(f"saved {s} from orig_offset: {textureOffset}, cel_offset: {celOffset}")
 		global cels_extracted
 		cels_extracted +=1
 
