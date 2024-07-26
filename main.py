@@ -251,7 +251,7 @@ def processTexture(f, series):
 	elif (unknown[0] == 17):
 		# "0x11" large character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = offsets.get("total_cels", 56)
+		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
 		SKIP_BYTES = 6
 	
 	# Handle each image

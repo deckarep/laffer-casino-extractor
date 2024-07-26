@@ -7,6 +7,19 @@
         "2": [0, 2, 4, 7, 9, 12, 16, 19, 21, 24, 35],
         "4": [23, 54, 55]
     },
+    "900": {
+        "name": "Cav - Complete",
+        "total_cels": 69,
+        "2": [0, 4, 9, 12, 16, 20, 24, 28, 31, 34, 45],
+        "4": [33, 60]
+    },
+    "902": {
+        "name": "Anette - Complete",
+        "note": "cel 36 bad render, possibly shipped like this in the game",
+        "total_cels": 84,
+        "2": [0, 5, 9, 12, 16, 19, 23, 27, 31, 35, 36, 37, 53],
+        "4": [75]
+    },
     "904": {
         "name": "Captain Thygh",
         "total_cels": 72,
@@ -18,5 +31,35 @@
         "total_cels": 56,
         "2": [0, 2, 4, 9, 12, 16, 18, 21, 23, 26, 41],
         "4": [25, 48, 56]
+    },
+    "908": {
+        "name": "Peggy - NOT STARTED",
+        "total_cels": 10,
+        "2": [],
+        "4": []
+    },
+    "910": {
+        "name": "Wang - Complete",
+        "total_cels": 66,
+        "2": [0, 7, 12, 17, 23, 27, 32, 35, 38, 42, 49],
+        "4": [41, 57]
+    },
+    "912": {
+        "name": "Surfer Dude - NOT STARTED",
+        "total_cels": 10,
+        "2": [],
+        "4": []
+    },
+    "914": {
+        "name": "Greaser - NOT STARTED",
+        "total_cels": 10,
+        "2": [],
+        "4": []
+    },
+    "916": {
+        "name": "Peter - COMPLETE, 917 is also Peter but offset table not needed for that one",
+        "total_cels": 71,
+        "2": [0, 3, 5, 8, 12, 15, 19, 21, 24, 27, 42],
+        "4": [26, 62]
     }
 }
