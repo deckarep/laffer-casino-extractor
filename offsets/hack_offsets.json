@@ -1,0 +1,15 @@
+{
+    "note": "add more character portrait series here",
+    "904": {
+        "name": "Captain Thygh",
+        "total_cels": 72,
+        "2": [0, 3, 7, 14, 16, 20, 24, 29, 32, 37, 48],
+        "4": [36, 63, 71]
+    },
+    "906": {
+        "name": "Wydoncha Jugg",
+        "total_cels": 56,
+        "2": [0, 2, 4, 9, 12, 16, 18, 21, 23, 26, 41],
+        "4": [25, 48, 56]
+    }
+}
