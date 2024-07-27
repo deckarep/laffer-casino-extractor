@@ -246,7 +246,7 @@ def processTexture(f, series):
 	elif (unknown[0] == 10):
 		# "0x0A" small character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = 10 #need to find the correct frame count for 0x0A and 0x11 cels
+		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
 		SKIP_BYTES = 6
 	elif (unknown[0] == 17):
 		# "0x11" large character portraits

@@ -1,5 +1,23 @@
 {
     "note": "add more character portrait series here",
+    "766": {
+        "name": "Cav small - Complete",
+        "total_cels": 32,
+        "2": [0, 4, 9, 12, 16, 20, 24, 28, 31, 34, 45],
+        "4": []
+    },
+    "767": {
+        "name": "Anette small - Complete",
+        "total_cels": 32,
+        "2": [0, 5, 9, 12, 16, 19, 23, 27, 31],
+        "4": []
+    },
+    "769": {
+        "name": "Wydoncha Jugg small - complete",
+        "total_cels": 24,
+        "2": [0, 2, 4, 9, 12, 16, 18, 21],
+        "4": []
+    },
     "898": {
         "name": "Drew Baringmore",
         "note": "incomplete, 56 won't render correctly and I can't figure out why",
