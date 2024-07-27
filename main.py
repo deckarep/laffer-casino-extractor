@@ -264,13 +264,8 @@ def processTexture(f, series):
 	width = height = 0
 	for i in range(NUM_IMAGES):
 		celOffset = f.tell()
-		if (unknown[0] == 10 or unknown[0] == 17) and not i == 0:
-			# 0x0A and 0x11 cels seem to have consistent width/heigh; reuse inital value
-			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		else:
-			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if width > 640 or height > 480:
 			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
 			global warn_cels_skipped
