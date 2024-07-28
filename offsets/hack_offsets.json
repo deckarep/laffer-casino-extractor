@@ -12,12 +12,25 @@
         "2": [0, 5, 9, 12, 16, 19, 23, 27, 31],
         "4": []
     },
+    "768": {
+        "name": "Captain Thygh small - Complete",
+        "total_cels": 32,
+        "2": [0, 3, 7, 14, 16, 20, 24, 29],
+        "4": []
+    },
     "769": {
-        "name": "Wydoncha Jugg small - complete",
+        "name": "Wydoncha Jugg small - Complete",
         "total_cels": 24,
         "2": [0, 2, 4, 9, 12, 16, 18, 21],
         "4": []
     },
+    "770": {
+        "name": "Peggy small - Complete",
+        "total_cels": 25,
+        "2": [0, 2, 4, 6, 8, 12, 16, 19],
+        "4": []
+    },
+    
     "898": {
         "name": "Drew Baringmore",
         "note": "incomplete, 56 won't render correctly and I can't figure out why",
