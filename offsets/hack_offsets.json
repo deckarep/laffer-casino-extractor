@@ -30,7 +30,18 @@
         "2": [0, 2, 4, 6, 8, 12, 16, 19],
         "4": []
     },
-    
+    "771": {
+        "name": "Wang small - Complete",
+        "total_cels": 39,
+        "2": [0, 7, 12, 17, 23, 27, 32, 35],
+        "4": []
+    },
+    "772": {
+        "name": "Dick small - Complete",
+        "total_cels": 34,
+        "2": [0, 5, 10, 13, 16, 20, 23, 26],
+        "4": []
+    },
     "898": {
         "name": "Drew Baringmore",
         "note": "incomplete, 56 won't render correctly and I can't figure out why",
@@ -76,7 +87,7 @@
         "4": [41, 57]
     },
     "912": {
-        "name": "Surfer Dude - INCOMPLETE :(",
+        "name": "Dick (Surfer Dude) - INCOMPLETE :(",
         "total_cels": 70,
         "2": [0, 5, 10, 13, 16, 20, 23, 26, 33, 37, 45],
         "4": [36]
