@@ -1,0 +1,107 @@
+{
+    "note": "add more character portrait series here",
+    "766": {
+        "name": "Cav small - Complete",
+        "total_cels": 32,
+        "2": [0, 4, 9, 12, 16, 20, 24, 28, 31, 34, 45],
+        "4": []
+    },
+    "767": {
+        "name": "Anette small - Complete",
+        "total_cels": 32,
+        "2": [0, 5, 9, 12, 16, 19, 23, 27, 31],
+        "4": []
+    },
+    "768": {
+        "name": "Captain Thygh small - Complete",
+        "total_cels": 32,
+        "2": [0, 3, 7, 14, 16, 20, 24, 29],
+        "4": []
+    },
+    "769": {
+        "name": "Wydoncha Jugg small - Complete",
+        "total_cels": 24,
+        "2": [0, 2, 4, 9, 12, 16, 18, 21],
+        "4": []
+    },
+    "770": {
+        "name": "Peggy small - Complete",
+        "total_cels": 25,
+        "2": [0, 2, 4, 6, 8, 12, 16, 19],
+        "4": []
+    },
+    "771": {
+        "name": "Wang small - Complete",
+        "total_cels": 39,
+        "2": [0, 7, 12, 17, 23, 27, 32, 35],
+        "4": []
+    },
+    "772": {
+        "name": "Dick small - Complete",
+        "total_cels": 34,
+        "2": [0, 5, 10, 13, 16, 20, 23, 26],
+        "4": []
+    },
+    "898": {
+        "name": "Drew Baringmore",
+        "note": "incomplete, 56 won't render correctly and I can't figure out why",
+        "total_cels": 65,
+        "2": [0, 2, 4, 7, 9, 12, 16, 19, 21, 24, 35, 55],
+        "4": [23, 54]
+    },
+    "900": {
+        "name": "Cav - Complete",
+        "total_cels": 69,
+        "2": [0, 4, 9, 12, 16, 20, 24, 28, 31, 34, 45],
+        "4": [33, 60]
+    },
+    "902": {
+        "name": "Anette - Complete",
+        "note": "cel 36 bad render, possibly shipped like this in the game",
+        "total_cels": 84,
+        "2": [0, 5, 9, 12, 16, 19, 23, 27, 31, 35, 36, 37, 53],
+        "4": [75]
+    },
+    "904": {
+        "name": "Captain Thygh - Complete",
+        "total_cels": 72,
+        "2": [0, 3, 7, 14, 16, 20, 24, 29, 32, 37, 48],
+        "4": [36, 63, 71]
+    },
+    "906": {
+        "name": "Wydoncha Jugg - Complete",
+        "total_cels": 56,
+        "2": [0, 2, 4, 9, 12, 16, 18, 21, 23, 26, 41],
+        "4": [25, 48, 56]
+    },
+    "908": {
+        "name": "Peggy - Complete",
+        "total_cels": 59,
+        "2": [0, 2, 4, 6, 8, 12, 16, 19, 24, 26, 38],
+        "4": [25, 50]
+    },
+    "910": {
+        "name": "Wang - Complete",
+        "total_cels": 66,
+        "2": [0, 7, 12, 17, 23, 27, 32, 35, 38, 42, 49],
+        "4": [41, 57]
+    },
+    "912": {
+        "name": "Dick (Surfer Dude) - INCOMPLETE :(",
+        "total_cels": 70,
+        "2": [0, 5, 10, 13, 16, 20, 23, 26, 33, 37, 45],
+        "4": [36]
+    },
+    "914": {
+        "name": "Johnson (Greaser) - COMPLETE",
+        "total_cels": 87,
+        "2": [0, 2, 9, 15, 18, 23, 26, 32, 36, 39, 58],
+        "4": [38, 78]
+    },
+    "916": {
+        "name": "Peter - COMPLETE, 917 is also Peter but offset table not needed for that one",
+        "total_cels": 71,
+        "2": [0, 3, 5, 8, 12, 15, 19, 21, 24, 27, 42],
+        "4": [26, 62]
+    }
+}

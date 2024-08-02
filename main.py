@@ -1,21 +1,25 @@
 # requires pillow img ext.
 # pip install --upgrade Pillow
 
+import argparse
 import os
 import struct
 import json
+import pdb
 from PIL import Image, ImageFont, ImageDraw
 
 MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
 MAX_SCAN_LINES =          -10   # A negative value is simply ignored.
 MAX_SERIES_TO_EXTRACT =   924   # A negative value extracts everything!
 
+userArgs = None
 font = ImageFont.truetype("SQ3n001.ttf", 25)
 fSeries = totalConsumed = 0
 extractTextures = True # export the game images to img/
 exportPal = False # export palette image to pal/
 extractSound = False # export audio files to sound/
 debug = False # log additional debug info
+hack_offsets = None
 
 # Counters
 cels_extracted = 0
@@ -209,6 +213,15 @@ def doRLE(f, pal, draw, width, height):
 def processTexture(f, series):
 	textureOffset = f.tell()
 	
+	# Filter by single series.
+	if userArgs.series and len(userArgs.series) > 0:
+		if series not in userArgs.series:
+			return
+
+	# Hacked offset table.
+	offsets = series_offsets(series)
+
+	# Palette
 	i = 0
 	pal = []
 	while ( i < 768):
@@ -233,12 +246,12 @@ def processTexture(f, series):
 	elif (unknown[0] == 10):
 		# "0x0A" small character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = 10 #need to find the correct frame count for 0x0A and 0x11 cels
+		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
 		SKIP_BYTES = 6
 	elif (unknown[0] == 17):
 		# "0x11" large character portraits
 		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = 10
+		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
 		SKIP_BYTES = 6
 	
 	# Handle each image
@@ -250,12 +263,9 @@ def processTexture(f, series):
 	i = 0
 	width = height = 0
 	for i in range(NUM_IMAGES):
-		if (unknown[0] == 10 or unknown[0] == 17) and not i == 0:
-			# 0x0A and 0x11 cels seem to have consistent width/heigh; reuse inital value
-			pass
-		else:
-			width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-			height = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		celOffset = f.tell()
+		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
+		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
 		if width > 640 or height > 480:
 			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
 			global warn_cels_skipped
@@ -274,16 +284,27 @@ def processTexture(f, series):
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
 		im.save(s, quality=100)
-		print(f"saved {s} from origin offset: 0x{textureOffset:x}")
+		print(f"saved {s} from orig_offset: {textureOffset}, cel_offset: {celOffset}")
 		global cels_extracted
 		cels_extracted +=1
+
+		# The large portrats 17 (0x11) have some unusual padding that Doomlazer figured out.
+		# See file: offsets/hack_offsets.json
+		if offsets:
+			consumerOf2Bytes = offsets.get('consumerOf2Bytes')
+			consumerOf4Bytes = offsets.get('consumerOf4Bytes')
+
+			if i in consumerOf2Bytes:
+				consumeNBytes(f, 2)
+			elif i in consumerOf4Bytes:
+				consumeNBytes(f, 4)
 
 def processTextureList(texList, vol):
 	global fSeries
 	with open(vol, 'rb') as f:
 		for i, offset in enumerate(texList):
 			# Caveat: the last texture offset gets stuck.
-			if i == 925:
+			if i == MAX_SERIES_TO_EXTRACT:
 				print("Stopping at 925th texture offset cause it gets stuck...")
 				return
 			f.seek(offset, 0)
@@ -301,6 +322,15 @@ def findTextures(vol):
 				texList.append(f.tell())
 	print(f"Identified {len(texList)} individual textures!")
 	return texList
+
+def series_offsets(series):
+	if str(series) in hack_offsets:
+		tbl = hack_offsets[str(series)]
+		consumerOf2Bytes = set(tbl["2"])
+		consumerOf4Bytes = set(tbl["4"])
+		cel_count = tbl["total_cels"]
+		return {'total_cels': cel_count, 'consumerOf2Bytes': consumerOf2Bytes, 'consumerOf4Bytes': consumerOf4Bytes }
+	return None
 
 def buildOrLoadOffsetTable():
 	CACHE_FOLDER = "cache"
@@ -325,7 +355,37 @@ def extractBin(offTbl, n):
 		nf.write(b)
 		nf.close()
 
+def parse_arguments():
+	parser = argparse.ArgumentParser(description="A script that handles an audio flag and a series of integers.")
+
+	# Optional boolean flag for debug
+	parser.add_argument('--debug', action='store_true', help='Optional boolean flag; enables debugger output')
+
+	# Optional boolean flag for audio
+	parser.add_argument('--audio', action='store_true', help='Optional boolean flag for audio')
+
+	# String flag for a series of integers
+	parser.add_argument('--series', type=str, help='Comma-delimited list of integers')
+
+	args = parser.parse_args()
+	# Convert series to a list of integers if provided
+	if args.series:
+		series_list = [int(item) for item in args.series.split(',')]
+		args.series = set(series_list)
+
+	return args
+
+def loadHackOffsets():
+	global hack_offsets
+	with open("offsets/hack_offsets.json", "r") as f:
+		hack_offsets = json.load(f)
+
 def run():
+	global userArgs
+	userArgs = parse_arguments()
+
+	loadHackOffsets()
+
 	# scanResource("test_textures/peter_texture_isolated.bin")
 	if os.path.exists(f"vol/RESOURCE.VOL"):
 		if extractTextures:
@@ -337,7 +397,8 @@ def run():
 			extractAudio("RESOURCE.VOL")
 	else:
 		print("ERROR: 'vol/RESOURCE.VOL' missing")
-	if os.path.exists(f"vol/audio.vol") and extractSound:
+
+	if os.path.exists(f"vol/audio.vol") and userArgs.audio:
 		extractAudio("audio.vol")
 	else:
 		if extractSound:
