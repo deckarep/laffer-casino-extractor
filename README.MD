@@ -5,10 +5,10 @@ This Python3 command-line tool can extract game assets from Larry's Casino desig
 [Reversed by: @deckarep @doomlazer](https://gist.github.com/deckarep/d6e0f0884a22c8a4a4b9392155f9dad0)
 
 #
-![Banner](LarryCasinoSpritesReversedBanner.png?raw=true "Larry Casino Sprite Extractor")
+![Banner](sprite_1_0.png?raw=true "sprite_1_0")
 #
 
-![Gameplay](gameplay.png?raw=true "Gameplay Screenshot")
+![Gameplay](sprite_73_0.png?raw=true "sprite_73_0")
 #
 
 The game is not easily playable on modern systems without the use of a virtual machine and *requires* that it be ran in 16-bit "high-color" mode with a resolution of 640x480. While I don't believe the sprite file-format has been reverse engineered prior; this repository might be a first.
