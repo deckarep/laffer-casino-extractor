@@ -210,6 +210,78 @@ def doRLE(f, pal, draw, width, height):
 	if debug:
 		print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
+def doBackgroundRLE(f, pal, draw, width, height):
+	y = 0
+	streamPadding = 0
+	while (y < height):
+		if MAX_SCAN_LINES > 0 and y >= MAX_SCAN_LINES:
+			# Only evaluate when negative.
+			return
+		
+		x = 0
+		while (x < width):
+			haveLiteralSeq = False
+			haveSingleRunNonTransparent = False
+			try:
+				singleByte = consumeSingleByte(f)
+			except Exception as e:
+				if str(e) == "max bytes consumed":
+					return
+				streamPadding +=1
+				singleByte = 0
+
+			# the code below results in about 30% of the backgrouds for #2 & 73
+			if singleByte == 0x02:
+				literalLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
+				haveLiteralSeq = True
+			elif singleByte == 0x04:
+				literalLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
+				haveLiteralSeq = True 
+			elif singleByte == 0x08:
+				runLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
+				haveSingleRunNonTransparent = True
+			elif singleByte == 0x10:
+				runLen = consumeSingleByte(f)
+				zeroDelimiter = consumeSingleByte(f)
+				haveSingleRunNonTransparent = True
+
+			if haveLiteralSeq:
+				for i in range(literalLen):
+					if (zeroDelimiter == 0):
+						colorIdx = consumeSingleByte(f)
+					else:
+						colorIdx = zeroDelimiter
+					p = colorIdx * 3
+					r = pal[p]
+					g = pal[p + 1] 
+					b = pal[p + 2]
+					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					x +=1
+			elif haveSingleRunNonTransparent:
+				if (zeroDelimiter == 0):
+					colorIdx = consumeSingleByte(f)
+				else:
+					colorIdx = zeroDelimiter
+				p = colorIdx * 3
+				r = pal[p]
+				g = pal[p + 1] 
+				b = pal[p + 2]
+				for i in range(runLen):
+					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					x +=1
+			else:
+				zeroDelimiter = consumeSingleByte(f)
+				p = singleByte * 3
+				r = pal[p]
+				g = pal[p + 1] 
+				b = pal[p + 2]
+				draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+				x +=1
+		y += 1
+
 def processTexture(f, series):
 	textureOffset = f.tell()
 	
@@ -275,11 +347,25 @@ def processTexture(f, series):
 		im = Image.new('RGB', (width, height), (255, 255, 255))
 		draw = ImageDraw.Draw(im)
 		
-		consumeNBytes(f, SKIP_BYTES)
+		s = consumeNBytes(f, SKIP_BYTES)
 		if debug:
 			print('arbitrary consumed: ' + str(totalConsumed))
 
-		doRLE(f, pal, draw, width, height)
+		# debug info
+		print("UNKNOWN: ")
+		print(unknown)
+		print("SKIP_BYTES: ")
+		print(s)
+		s = consumeNBytes(f, SKIP_BYTES)
+		print("NEXT_BYTES: ")
+		print(s)
+		unconsumeBytes(f, SKIP_BYTES)
+		
+		# to do: this does NOT correctly distinguish between backgrounds and non-bg
+		if (unknown[0] == 1 and unknown[2] == 1):
+			doBackgroundRLE(f, pal, draw, width, height)
+		else:
+			doRLE(f, pal, draw, width, height)
 
 		os.makedirs("img", exist_ok = True)
 		s = f"img/sprite_{series}_{i}.png"
@@ -308,7 +394,8 @@ def processTextureList(texList, vol):
 				print("Stopping at 925th texture offset cause it gets stuck...")
 				return
 			f.seek(offset, 0)
-			processTexture(f, fSeries)
+			if (fSeries == 73): # debug a single image
+				processTexture(f, fSeries)
 			fSeries +=1
 
 def findTextures(vol):
