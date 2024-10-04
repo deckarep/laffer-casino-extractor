@@ -217,7 +217,15 @@ def doBackgroundRLE(f, pal, draw, width, height):
 		if MAX_SCAN_LINES > 0 and y >= MAX_SCAN_LINES:
 			# Only evaluate when negative.
 			return
+		wth = consumeNBytes(f, 2)
+		line = 150
 		
+		if (y == line):
+			print("consuming this removes bad pixel at start of each line:")
+			print(wth)
+			#print(consumeNBytes(f,width))
+			#unconsumeBytes(f, width)
+
 		x = 0
 		while (x < width):
 			haveLiteralSeq = False
@@ -229,8 +237,11 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					return
 				streamPadding +=1
 				singleByte = 0
-
-			# the code below results in about 30% of the backgrouds for #2 & 73
+			print("line: ")
+			print(y)
+			print("singleByte: ")
+			print(singleByte)
+			# the code below results in about 50% of the backgrouds for #2 & 73
 			if singleByte == 0x02:
 				literalLen = consumeSingleByte(f)
 				zeroDelimiter = consumeSingleByte(f)
@@ -240,7 +251,8 @@ def doBackgroundRLE(f, pal, draw, width, height):
 				zeroDelimiter = consumeSingleByte(f)
 				haveLiteralSeq = True 
 			elif singleByte == 0x08:
-				runLen = consumeSingleByte(f)
+				b = consumeSingleByte(f)
+				runLen = b
 				zeroDelimiter = consumeSingleByte(f)
 				haveSingleRunNonTransparent = True
 			elif singleByte == 0x10:
@@ -250,7 +262,11 @@ def doBackgroundRLE(f, pal, draw, width, height):
 
 			if haveLiteralSeq:
 				for i in range(literalLen):
-					if (zeroDelimiter == 0):
+					if (zeroDelimiter == 0
+		 				or zeroDelimiter == 1
+		   				# 1 & 4 seems like a nice improvement together
+						# inconclusive: 5,9,10    Worse: 8,
+						or zeroDelimiter == 4): 
 						colorIdx = consumeSingleByte(f)
 					else:
 						colorIdx = zeroDelimiter
@@ -259,6 +275,8 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					if (y == line):
+						draw.rectangle((x, y, x + 1, y+1), fill=(0, 0, 255))
 					x +=1
 			elif haveSingleRunNonTransparent:
 				if (zeroDelimiter == 0):
@@ -271,15 +289,33 @@ def doBackgroundRLE(f, pal, draw, width, height):
 				b = pal[p + 2]
 				for i in range(runLen):
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					if (y == line):
+						draw.rectangle((x, y, x + 1, y+1), fill=(0, 255, 0))
 					x +=1
 			else:
-				zeroDelimiter = consumeSingleByte(f)
-				p = singleByte * 3
-				r = pal[p]
-				g = pal[p + 1] 
-				b = pal[p + 2]
-				draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
-				x +=1
+				if (zeroDelimiter == 0
+					or zeroDelimiter == 4 # why 4? It improves background 73
+					or zeroDelimiter == 8): 
+					# 5, 6, 8 is questionable, needs more testing. hard to tell: 7, 11,12,13
+					# noticably worse: 9,
+					pass
+				else:
+					#zeroDelimiter = consumeSingleByte(f)
+					p = singleByte * 3
+					r = pal[p]
+					g = pal[p + 1] 
+					b = pal[p + 2]
+					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
+					if (y == line):
+						print("single byte")
+						print(singleByte)
+						print("zero del")
+						print(zeroDelimiter)
+						if (zeroDelimiter == 4):
+							draw.rectangle((x, y, x + 1, y+1), fill=(255,0,0))
+						else:
+							draw.rectangle((x, y, x + 1, y+1), fill=(255,255,0))
+					x +=1
 		y += 1
 
 def processTexture(f, series):
