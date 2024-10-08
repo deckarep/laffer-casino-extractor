@@ -20,6 +20,16 @@ exportPal = False # export palette image to pal/
 extractSound = False # export audio files to sound/
 debug = False # log additional debug info
 hack_offsets = None
+# belived to be BGs or compatible with doBackgroundRLE():
+bgNums  = [0, 1, 3, 14, 15, 17, 72, 73, 76, 81, 83, 91, 116, 117, 118,
+		   119, 120, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 148,
+		   149, 150, 152, 153, 258, 277, 282, 287, 289, 296,305, 316, 324,
+		   325, 333, 334, 339, 343, 344, 352, 361, 370, 379, 380, 386, 394, 395,
+		   396, 402, 412, 414, 418, 419, 428, 435, 442, 474, 484, 490,
+		   499, 501, 502, 513, 520, 527, 535, 536, 537, 539, 540, 550, 553, 576,
+		   580, 582, 583, 584, 626, 765, 783, 785, 794, 802,
+		   811, 812, 821, 829, 834, 835, 845, 853, 861, 871, 872, 880, 884,
+		   888, 889, 891, 897, 921]
 
 # Counters
 cels_extracted = 0
@@ -217,14 +227,14 @@ def doBackgroundRLE(f, pal, draw, width, height):
 		if MAX_SCAN_LINES > 0 and y >= MAX_SCAN_LINES:
 			# Only evaluate when negative.
 			return
-		wth = consumeNBytes(f, 2)
-		line = 150
 		
-		if (y == line):
+		# diagnostic line, use line = y for all lines
+		line = 451 #269
+
+		wth = consumeNBytes(f, 2)	
+		if (y == line):	
 			print("consuming this removes bad pixel at start of each line:")
 			print(wth)
-			#print(consumeNBytes(f,width))
-			#unconsumeBytes(f, width)
 
 		x = 0
 		while (x < width):
@@ -237,11 +247,11 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					return
 				streamPadding +=1
 				singleByte = 0
-			print("line: ")
-			print(y)
-			print("singleByte: ")
-			print(singleByte)
-			# the code below results in about 50% of the backgrouds for #2 & 73
+			#print("line: ")
+			#print(y)
+			#print("singleByte: ")
+			#print(singleByte)
+			# the code below results in about 50% of the backgrouds for #1 & 73
 			if singleByte == 0x02:
 				literalLen = consumeSingleByte(f)
 				zeroDelimiter = consumeSingleByte(f)
@@ -276,6 +286,8 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					if (y == line):
+						print("blue")
+						print(zeroDelimiter)
 						draw.rectangle((x, y, x + 1, y+1), fill=(0, 0, 255))
 					x +=1
 			elif haveSingleRunNonTransparent:
@@ -295,7 +307,8 @@ def doBackgroundRLE(f, pal, draw, width, height):
 			else:
 				if (zeroDelimiter == 0
 					or zeroDelimiter == 4 # why 4? It improves background 73
-					or zeroDelimiter == 8): 
+					or zeroDelimiter == 8
+					or zeroDelimiter == 10): 
 					# 5, 6, 8 is questionable, needs more testing. hard to tell: 7, 11,12,13
 					# noticably worse: 9,
 					pass
@@ -307,13 +320,15 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					if (y == line):
-						print("single byte")
-						print(singleByte)
-						print("zero del")
-						print(zeroDelimiter)
-						if (zeroDelimiter == 4):
+						#print("single byte")
+						#print(singleByte)
+						#print("zero del")
+						#print(zeroDelimiter)
+						if (zeroDelimiter == 1):
 							draw.rectangle((x, y, x + 1, y+1), fill=(255,0,0))
 						else:
+							print("yellow")
+							print(zeroDelimiter)
 							draw.rectangle((x, y, x + 1, y+1), fill=(255,255,0))
 					x +=1
 		y += 1
@@ -397,8 +412,9 @@ def processTexture(f, series):
 		print(s)
 		unconsumeBytes(f, SKIP_BYTES)
 		
-		# to do: this does NOT correctly distinguish between backgrounds and non-bg
-		if (unknown[0] == 1 and unknown[2] == 1):
+		if (fSeries in bgNums): # work from list because this is wrong: (unknown[0] == 1 and unknown[2] == 1):
+			print("Texture number: ")
+			print(fSeries)
 			doBackgroundRLE(f, pal, draw, width, height)
 		else:
 			doRLE(f, pal, draw, width, height)
@@ -430,7 +446,8 @@ def processTextureList(texList, vol):
 				print("Stopping at 925th texture offset cause it gets stuck...")
 				return
 			f.seek(offset, 0)
-			if (fSeries == 73): # debug a single image
+			if (fSeries == 1): # debug a single image
+			#if (fSeries in bgNums): # debug on "BG" images
 				processTexture(f, fSeries)
 			fSeries +=1
 
