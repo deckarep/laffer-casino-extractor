@@ -229,12 +229,11 @@ def doBackgroundRLE(f, pal, draw, width, height):
 			return
 		
 		# diagnostic line, use line = y for all lines
-		line = 451 #269
+		line = 269
 
 		wth = consumeNBytes(f, 2)	
-		if (y == line):	
-			print("consuming this removes bad pixel at start of each line:")
-			print(wth)
+		#print("consuming this removes bad pixel at start of each line:")
+		#print(wth)
 
 		x = 0
 		while (x < width):
@@ -247,54 +246,30 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					return
 				streamPadding +=1
 				singleByte = 0
-			#print("line: ")
-			#print(y)
-			#print("singleByte: ")
-			#print(singleByte)
-			# the code below results in about 50% of the backgrouds for #1 & 73
+			
+			# is 0x04 better? is 0x10?
 			if singleByte == 0x02:
 				literalLen = consumeSingleByte(f)
 				zeroDelimiter = consumeSingleByte(f)
 				haveLiteralSeq = True
-			elif singleByte == 0x04:
-				literalLen = consumeSingleByte(f)
-				zeroDelimiter = consumeSingleByte(f)
-				haveLiteralSeq = True 
-			elif singleByte == 0x08:
-				b = consumeSingleByte(f)
-				runLen = b
-				zeroDelimiter = consumeSingleByte(f)
-				haveSingleRunNonTransparent = True
-			elif singleByte == 0x10:
+			elif singleByte == 0x08: # or singleByte == 0x10:
 				runLen = consumeSingleByte(f)
 				zeroDelimiter = consumeSingleByte(f)
 				haveSingleRunNonTransparent = True
 
 			if haveLiteralSeq:
 				for i in range(literalLen):
-					if (zeroDelimiter == 0
-		 				or zeroDelimiter == 1
-		   				# 1 & 4 seems like a nice improvement together
-						# inconclusive: 5,9,10    Worse: 8,
-						or zeroDelimiter == 4): 
-						colorIdx = consumeSingleByte(f)
-					else:
-						colorIdx = zeroDelimiter
+					colorIdx = consumeSingleByte(f)
 					p = colorIdx * 3
 					r = pal[p]
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					if (y == line):
-						print("blue")
-						print(zeroDelimiter)
 						draw.rectangle((x, y, x + 1, y+1), fill=(0, 0, 255))
 					x +=1
 			elif haveSingleRunNonTransparent:
-				if (zeroDelimiter == 0):
-					colorIdx = consumeSingleByte(f)
-				else:
-					colorIdx = zeroDelimiter
+				colorIdx = consumeSingleByte(f)
 				p = colorIdx * 3
 				r = pal[p]
 				g = pal[p + 1] 
@@ -306,29 +281,22 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					x +=1
 			else:
 				if (zeroDelimiter == 0
-					or zeroDelimiter == 4 # why 4? It improves background 73
-					or zeroDelimiter == 8
+					#or zeroDelimiter == 4 # why 4? It improves background 73
+					or zeroDelimiter == 8 # debateable if better or worse
 					or zeroDelimiter == 10): 
-					# 5, 6, 8 is questionable, needs more testing. hard to tell: 7, 11,12,13
-					# noticably worse: 9,
+					# checked up to 15
+					# test 24, 16, 58, 33, 41, 49, 57, 66, 74, 78, 79, 90, 94, 99, 107
 					pass
 				else:
-					#zeroDelimiter = consumeSingleByte(f)
 					p = singleByte * 3
 					r = pal[p]
 					g = pal[p + 1] 
 					b = pal[p + 2]
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					if (y == line):
-						#print("single byte")
-						#print(singleByte)
-						#print("zero del")
-						#print(zeroDelimiter)
 						if (zeroDelimiter == 1):
 							draw.rectangle((x, y, x + 1, y+1), fill=(255,0,0))
 						else:
-							print("yellow")
-							print(zeroDelimiter)
 							draw.rectangle((x, y, x + 1, y+1), fill=(255,255,0))
 					x +=1
 		y += 1
@@ -446,8 +414,8 @@ def processTextureList(texList, vol):
 				print("Stopping at 925th texture offset cause it gets stuck...")
 				return
 			f.seek(offset, 0)
-			if (fSeries == 1): # debug a single image
-			#if (fSeries in bgNums): # debug on "BG" images
+			#if (fSeries == 1): # debug a single image
+			if (fSeries in bgNums): # debug on "BG" images
 				processTexture(f, fSeries)
 			fSeries +=1
 
