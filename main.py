@@ -229,7 +229,7 @@ def doBackgroundRLE(f, pal, draw, width, height):
 			return
 		
 		# diagnostic line, use line = y for all lines
-		line = 269
+		line = 999 #234
 
 		wth = consumeNBytes(f, 2)	
 		#print("consuming this removes bad pixel at start of each line:")
@@ -246,7 +246,13 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					return
 				streamPadding +=1
 				singleByte = 0
-			
+			if x == 271 and y == 236:
+				i = 0
+				print("x is 271, print 30 bytes")
+				while (i < 30):
+					print(consumeSingleByte(f))
+					unconsumeBytes(f, 20)
+					i += 1
 			# is 0x04 better? is 0x10?
 			if singleByte == 0x02:
 				literalLen = consumeSingleByte(f)
@@ -260,6 +266,14 @@ def doBackgroundRLE(f, pal, draw, width, height):
 			if haveLiteralSeq:
 				for i in range(literalLen):
 					colorIdx = consumeSingleByte(f)
+					if colorIdx == 0:
+						unconsumeBytes(f, 1)
+						x += 1
+					if (colorIdx <= 0):
+						print("x: ")
+						print(x)
+						print("y: ")
+						print(y)
 					p = colorIdx * 3
 					r = pal[p]
 					g = pal[p + 1] 
@@ -270,6 +284,9 @@ def doBackgroundRLE(f, pal, draw, width, height):
 					x +=1
 			elif haveSingleRunNonTransparent:
 				colorIdx = consumeSingleByte(f)
+				if colorIdx == 0:
+						unconsumeBytes(f, 1)
+						x += 1
 				p = colorIdx * 3
 				r = pal[p]
 				g = pal[p + 1] 
