@@ -8,6 +8,8 @@ import json
 import pdb
 from PIL import Image, ImageFont, ImageDraw
 
+from dataclasses import asdict, dataclass
+
 MAX_BYTES_TO_CONSUME = -300_000 # A negative value is simply ignored.
 MAX_SCAN_LINES =          -10   # A negative value is simply ignored.
 MAX_SERIES_TO_EXTRACT =   924   # A negative value extracts everything!
@@ -24,6 +26,37 @@ hack_offsets = None
 # Counters
 cels_extracted = 0
 warn_cels_skipped = 0
+
+resourceVolFile = "RESOURCE.VOL"
+
+def _read_u32_le(f) -> int:
+	b = f.read(4)
+	return struct.unpack('<I', b)[0]
+
+def _read_u16_le(f) -> int:
+	b = f.read(2)
+	return struct.unpack('<H', b)[0]
+
+def _read_cstring(f) -> str:
+	buf = bytearray()
+	foundEnd = False
+	while not foundEnd:
+		ch = f.read(1)
+		if ch == b"\x00":
+			foundEnd = True
+		else:
+			buf += ch
+	return buf.decode('ascii')
+
+@dataclass(frozen=True)
+class ChunkRecord:
+	index: int
+	unknown: int
+	name: str
+	size: int
+	offset: int
+	data_start: int
+	data_end: int
 
 def print_alignments(n):
 	alignments = [2, 4, 8, 16, 32]
@@ -126,49 +159,33 @@ def unconsumeBytes(f, howMany):
 	totalConsumed -= howMany
 
 def doRLE(f, pal, draw, width, height):
+	# Each row of the image starts with a uint16 rowBytes
+	# followed by rowBytes bytes containing 1 byte opcodes
+	# and 2-byte low-endian run lengths:
+	#
+	# 01 lo hi
+	#     paints a predetermined for the run (color 0/transparency?)
+	#
+	# 02 lo hi <payload>
+	#     paints 1 pixel at a time, reading a color byte for each one
+	#
+	# 08 lo hi color
+	#     paints a specified color for the run
+
 	y = 0
-	streamPadding = 0
-	while (y < height):
-		if MAX_SCAN_LINES > 0 and y >= MAX_SCAN_LINES:
-			# Only evaluate when negative.
-			return
-		
+	while y < height:
 		x = 0
-		while (x < width):
-			haveRun = False
-			haveLiteralSeq = False
-			haveSingleRunNonTransparent = False
-			try:
-				singleByte = consumeSingleByte(f)
-			except Exception as e:
-				if str(e) == "max bytes consumed":
-					return
-				streamPadding +=1
-				singleByte = 0
+		row_bytes = _read_u16_le(f)
+		while x < width:
+			opcode = consumeSingleByte(f)
+			runLen = _read_u16_le(f)
 
-			# Conjecture 1: these may be power of 2 control values
-			# 	Haven't yet seen a meaningful case for 0x4 yet.
-			# Conjecture 2: almost no difference between 0x01 and 0x08
-			#	Perhaps 0x08 allows for a WORD size runLen rather than limited to BYTE.
-			if singleByte == 0x01:
-				# Basic case: Single Color Run, often used for transparency.
-				# Next byte: <runLen>
-				# Next byte: <colorIdx>
-				runLen = consumeSingleByte(f)
+			colorIdx = 0
+
+			if opcode == 0x08:
 				colorIdx = consumeSingleByte(f)
-				haveRun = True
-			elif singleByte == 0x02:
-				# Literal case: a sequence of differing N literal bytes.
-				literalLen = consumeSingleByte(f)
-				zeroDelimiter = consumeSingleByte(f)
-				haveLiteralSeq = True
-			elif singleByte == 0x08:
-				# Single Color Run: NON-transparency
-				runLen = consumeSingleByte(f)
-				zeroDelimiter = consumeSingleByte(f)
-				haveSingleRunNonTransparent = True
 
-			if haveRun:
+			if opcode != 0x02:
 				p = colorIdx * 3
 				r = pal[p] 
 				g = pal[p + 1]
@@ -176,10 +193,9 @@ def doRLE(f, pal, draw, width, height):
 				draw.rectangle((x, y, x+runLen, y+1), fill=(r, g, b))
 				if debug:
 					print(f"Run: x={x}, y={y}, runLen={runLen} (0x{runLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
-				# Increment x by runLen.
 				x += runLen
-			elif haveLiteralSeq:
-				for i in range(literalLen):
+			else:
+				for i in range(runLen):
 					colorIdx = consumeSingleByte(f)
 					p = colorIdx * 3
 					r = pal[p]
@@ -188,38 +204,19 @@ def doRLE(f, pal, draw, width, height):
 					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
 					if debug:
 						print(f"Literal: x={x}, y={y}, litLen={literalLen} (0x{literalLen:x}), colorIdx={colorIdx} (0x{colorIdx:x})")
-					x +=1
-			elif haveSingleRunNonTransparent:
-				colorIdx = consumeSingleByte(f)
-				p = colorIdx * 3
-				r = pal[p]
-				g = pal[p + 1] 
-				b = pal[p + 2]
-				for i in range(runLen):
-					draw.rectangle((x, y, x + 1, y+1), fill=(r, g, b))
-					x +=1
-			else:
-				# At least for Peter, these else values must be skipped!
-				# NOTE: I have to see if this holds true for other textures.
-				pass
-				# hotPink = (0xfe, 0x24, 0xb6)
-				# draw.rectangle((x, y, x+1, y+1), fill=hotPink)
-				# print(f"else: x={x}, y={y}, byte=0x{singleByte:x}, color=HOT_PINK")
-				#x += 1
+					x += 1
 		y += 1
-	if debug:
-		print("WARN: stream padded with: " + str(streamPadding) + " bytes!!")
 
-def processTexture(f, series):
-	textureOffset = f.tell()
-	
+def processTexture(f, series, texInfo):
+	f.seek(texInfo.data_start)
+
 	# Filter by single series.
 	if userArgs.series and len(userArgs.series) > 0:
 		if series not in userArgs.series:
 			return
 
-	# Hacked offset table.
-	offsets = series_offsets(series)
+	# consume the "tex 0001" at the beginning
+	consumeNBytes(f, 8)
 
 	# Palette
 	i = 0
@@ -231,97 +228,94 @@ def processTexture(f, series):
 	if exportPal and not os.path.exists(f"pal/{series}_Pal.png"):
 		exportPalImg(series, pal)
 
-	# This unknown sometimes contains texture's frame count.
-	unknown = consumeNBytes(f, 4)
-	if debug:
-		logUnknown(f)
+	# right after the palette is a count of image "groups"
+	num_image_groups = _read_u16_le(f)
 
-	# The possible values of the first byte in unknown are: 1, 10 & 17 
-	NUM_IMAGES = 0
-	SKIP_BYTES = 0
-	if (unknown[0] == 1):
-		# "0x01"
-		NUM_IMAGES = unknown[2] # could NUM_IMAGES acutally be a WORD?
-		SKIP_BYTES = 8
-	elif (unknown[0] == 10):
-		# "0x0A" small character portraits
-		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
-		SKIP_BYTES = 6
-	elif (unknown[0] == 17):
-		# "0x11" large character portraits
-		next2Bytes = consumeNBytes(f, 2)
-		NUM_IMAGES = offsets.get("total_cels", 56) if offsets else 56
-		SKIP_BYTES = 6
-	
-	# Handle each image
-	# TODO: extract NUM_IMAGES from somewhere above.
-	# Observation: subsprites in a series can have different width/height vals.
-	#	so to make it easy, I'm just generating single files and not atlases.
-	# Observation: For Peter test file, I confirmed that it spits out 2 duplicate images
-	# so it's really just 10 unique animation sprites. Verified with md5 check.
-	i = 0
-	width = height = 0
-	for i in range(NUM_IMAGES):
-		celOffset = f.tell()
-		width = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		height = struct.unpack('<H', consumeNBytes(f, 2))[0]
-		if width > 640 or height > 480:
-			print(f"WARN: width: {width} or height: {height} exceeds expected values. Skipping series: {series}, cel: {i}")
-			global warn_cels_skipped
-			warn_cels_skipped +=1
-			continue
-		
-		im = Image.new('RGB', (width, height), (255, 255, 255))
-		draw = ImageDraw.Draw(im)
-		
-		consumeNBytes(f, SKIP_BYTES)
-		if debug:
-			print('arbitrary consumed: ' + str(totalConsumed))
+	# Note: some groups have 0 images in them
+	# if image count > 0, the group data starts with a count of the images in the group
+	# followed by a header for each image:
+	#   uint16 width
+	#   uint16 height
+	#   uint16 unknown1 <--\
+	#   uint16 unknown2 <-- \ these values have 0's for most images but not all, purpose unknown for now
+	#   uint16 unknown3 <-- /
+	#   uint16 unknown4 <--/
+	endOfCel = 0
+	for i in range(num_image_groups):
+		group_image_count = _read_u16_le(f)
+		if group_image_count != 0:
+			for j in range(group_image_count):
+				#read image header
+				width = _read_u16_le(f)
+				height = _read_u16_le(f)
+				unknown1 = _read_u16_le(f)
+				unknown2 = _read_u16_le(f)
+				unknown3 = _read_u16_le(f)
+				unknown4 = _read_u16_le(f)
 
-		doRLE(f, pal, draw, width, height)
+				#process image
+				im = Image.new('RGB', (width, height), (255, 255, 255))
+				draw = ImageDraw.Draw(im)
 
-		os.makedirs("img", exist_ok = True)
-		s = f"img/sprite_{series}_{i}.png"
-		im.save(s, quality=100)
-		print(f"saved {s} from orig_offset: {textureOffset}, cel_offset: {celOffset}")
-		global cels_extracted
-		cels_extracted +=1
+				celOffset = f.tell()
 
-		# The large portrats 17 (0x11) have some unusual padding that Doomlazer figured out.
-		# See file: offsets/hack_offsets.json
-		if offsets:
-			consumerOf2Bytes = offsets.get('consumerOf2Bytes')
-			consumerOf4Bytes = offsets.get('consumerOf4Bytes')
+				doRLE(f, pal, draw, width, height)
 
-			if i in consumerOf2Bytes:
-				consumeNBytes(f, 2)
-			elif i in consumerOf4Bytes:
-				consumeNBytes(f, 4)
+				endOfCel = f.tell()
+
+				os.makedirs("img", exist_ok = True)
+				s = f"img/sprite_{series}_{texInfo.name}_{i}_{j}.png"
+				im.save(s, quality=100)
+
+				print(f"saved {s} from orig_offset: {texInfo.offset}, cel_offset: {celOffset}")
+				global cels_extracted
+				cels_extracted +=1
+
+	if texInfo.data_end != endOfCel:
+		print("Image data processing stopped before EOF!")
 
 def processTextureList(texList, vol):
 	global fSeries
 	with open(vol, 'rb') as f:
-		for i, offset in enumerate(texList):
-			# Caveat: the last texture offset gets stuck.
-			if i == MAX_SERIES_TO_EXTRACT:
-				print("Stopping at 925th texture offset cause it gets stuck...")
-				return
-			f.seek(offset, 0)
-			processTexture(f, fSeries)
-			fSeries +=1
+		for i, texture in enumerate(texList):
+			processTexture(f, fSeries, texture)
+			fSeries += 1
 
-def findTextures(vol):
-	print("Scanning textures, please wait...")
-	texList = []
+def findChunks(vol):
+	print("Scanning for chunks, please wait...")
+	chunkList = []
+	directory_records_raw = []
+
+	# Read the .vol file header to build a complete texture list
+	# The header starts with 2 32-bit ints:
+	# unknown_magic <- possibly a version number?
+	# num_chunks    <- number of files within the .vol file
+	#
+	# Then follows a variable length list of records:
+	#          int32 unknown <- maybe a category or something to group files? I haven't compared them but they share a lot of values
+	# char[variable] name    <- \0 terminated file name for that chunk
+	#          int32 size    <- size of the chunk
+	#          int32 offset  <- position of chunk in .vol file relative to the end of the .vol header
 	with open(vol, "rb") as f:
-		while (byte := consumeNBytes(f, 1)):
-			if (byte == b'\x74' and consumeNBytes(f, 1) == b'\x65' and consumeNBytes(f, 1) == b'\x78' and
-				consumeNBytes(f, 1) == b'\x20' and consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x30' and 
-				consumeNBytes(f, 1) == b'\x30' and consumeNBytes(f, 1) == b'\x31'):
-				texList.append(f.tell())
-	print(f"Identified {len(texList)} individual textures!")
-	return texList
+		unknown_magic = _read_u32_le(f)
+		num_chunks = _read_u32_le(f)
+		for i in range(num_chunks):
+			unknown = _read_u32_le(f)
+			name = _read_cstring(f)
+			size = _read_u32_le(f)
+			offset = _read_u32_le(f)
+			directory_records_raw.append((name, unknown, size, offset))
+
+		# directory offsets are relative to this position:
+		chunks_start = f.tell()
+
+	for i, (name, unknown, size, offset) in enumerate(directory_records_raw):
+		data_start = chunks_start + offset
+		data_end = data_start + size
+		chunkList.append(ChunkRecord(i, unknown, name, size, offset, data_start, data_end))
+
+	print(f"Identified {len(chunkList)} individual files!")
+	return chunkList
 
 def series_offsets(series):
 	if str(series) in hack_offsets:
@@ -332,25 +326,31 @@ def series_offsets(series):
 		return {'total_cels': cel_count, 'consumerOf2Bytes': consumerOf2Bytes, 'consumerOf4Bytes': consumerOf4Bytes }
 	return None
 
-def buildOrLoadOffsetTable():
+def buildOrLoadOffsetTable(filepath):
 	CACHE_FOLDER = "cache"
-	CACHE_FILE = "tex_offset_tbl.json"
+	CACHE_FILE = f"{filepath.replace('/','_')}_offset_tbl.json"
 	os.makedirs(CACHE_FOLDER, exist_ok = True)
 	if not os.path.exists(f"{CACHE_FOLDER}/{CACHE_FILE}"):
-		offTbl = findTextures(f"vol/RESOURCE.VOL")
+		offTbl = findChunks(filepath)
 		with open(f'{CACHE_FOLDER}/{CACHE_FILE}', 'w') as jf:
-			json.dump(offTbl, jf, indent=4)
-			return offTbl
+			json.dump([asdict(r) for r in offTbl], jf, indent=4)
+		return offTbl
 	else:
 		with open(f'{CACHE_FOLDER}/{CACHE_FILE}', 'r') as jf:
-			return json.load(jf)
-		
+			data = json.load(jf)
+			return [ChunkRecord(**d) for d in data]
+
+def getTexturesFromOffsetTable(offTbl):
+	onlyTextures = [e for e in offTbl if ".tex" in e.name.lower()]
+	print(f"Identified {len(onlyTextures)} individual textures!")
+	return onlyTextures
+
 def extractBin(offTbl, n):
 	# quick and dirty
-	with open("vol/RESOURCE.VOL", 'rb') as f:
-		f.seek(offTbl[n]-8)
-		b = f.read(offTbl[n+1]-offTbl[n])
-		s = "test_textures/" + str(n) + ".bin"
+	with open(os.path.join("vol/",resourceVolFile), 'rb') as f:
+		f.seek(offTbl[n].data_start)
+		b = f.read(offTbl[n].size)
+		s = f"test_textures/{str(n)}_{offTbl[n].name}.bin"
 		nf = open(s, 'bw+')
 		nf.write(b)
 		nf.close()
@@ -386,17 +386,20 @@ def run():
 
 	loadHackOffsets()
 
+	filepath = os.path.join("vol/",resourceVolFile)
+
 	# scanResource("test_textures/peter_texture_isolated.bin")
-	if os.path.exists(f"vol/RESOURCE.VOL"):
+	if os.path.exists(filepath):
 		if extractTextures:
-			offTbl = buildOrLoadOffsetTable()
+			offTbl = buildOrLoadOffsetTable(filepath)
+			texTbl = getTexturesFromOffsetTable(offTbl)
 			#extractBin(offTbl, 906)
-			processTextureList(offTbl, f"vol/RESOURCE.VOL")
+			processTextureList(texTbl, filepath)
 			print(f"Summary - Total Series: {fSeries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
 		if extractSound:
-			extractAudio("RESOURCE.VOL")
+			extractAudio(filepath)
 	else:
-		print("ERROR: 'vol/RESOURCE.VOL' missing")
+		print(f"ERROR: '{filepath}' missing")
 
 	if os.path.exists(f"vol/audio.vol") and userArgs.audio:
 		extractAudio("audio.vol")
