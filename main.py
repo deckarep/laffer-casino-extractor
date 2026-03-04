@@ -28,6 +28,7 @@ cels_extracted = 0
 warn_cels_skipped = 0
 
 resourceVolFile = "RESOURCE.VOL"
+audioVolFile = "AUDIO.VOL"
 
 def _read_u32_le(f) -> int:
 	b = f.read(4)
@@ -68,24 +69,26 @@ def print_alignments(n):
 		results.append("(NO ALIGNMENT)")
 	print(f"Number: {n}, " + ", ".join(results))
 
-def extractAudio(file):
+def extractAudio(file, offTbl):
 	fnum = 0
 	os.makedirs("sound/"+file, exist_ok = True)
-	with open("vol/"+file, "rb") as f:
-		while (byte := f.read(1)):
-			if byte == b'\x52' and f.read(1) == b'\x49' and f.read(1) == b'\x46' and f.read(1) == b'\x46':
-				size = struct.unpack('<i', f.read(4))[0]
-				if debug:
-					print("Found RIFF starting at: ", f.tell()-4)
-					print("wav size: ", size)
-				f.seek(-8, 1)
-				wav = f.read(size+8)
-				s = "sound/" + file + "/" + str(fnum) + ".wav"
-				fnum=fnum+1
-				nf = open(s, 'bw+')
-				nf.write(wav)
-				nf.close()
-				print("saved " + s)
+
+	# slight hack due to AUDIO.VOL not using .wav in filenames
+	if len(offTbl) < 2000:
+		extra = ""
+	else:
+		extra = ".wav"
+
+	with open(os.path.join("vol", file), "rb") as f:
+		for i, audInfo in enumerate(offTbl):
+			f.seek(audInfo.data_start)
+			s = f"sound/{file}/{audInfo.name}{extra}"
+			nf = open(s, 'bw+')
+			nf.write(f.read(audInfo.size))
+			nf.close
+			print(f"saved {s}")
+			fnum += 1
+	print(f"Saved {fnum} audio files")
 
 def logUnknown(f):
 	t = ['<h', '<H', '<b', '<B']
@@ -345,6 +348,17 @@ def getTexturesFromOffsetTable(offTbl):
 	print(f"Identified {len(onlyTextures)} individual textures!")
 	return onlyTextures
 
+def getAudioFromOffsetTable(offTbl):
+	# slight hack due to AUDIO.VOL not using .wav in filenames
+	if len(offTbl) < 2000:
+		onlyAudio = [e for e in offTbl if ".wav" in e.name.lower()]
+	else:
+		#AUDIO.VOL contains 2 non-audio files, both .exe files
+		onlyAudio = [e for e in offTbl if ".exe" not in e.name.lower()]
+
+	print(f"Identified {len(onlyAudio)} individual audio files!")
+	return onlyAudio
+
 def extractBin(offTbl, n):
 	# quick and dirty
 	with open(os.path.join("vol/",resourceVolFile), 'rb') as f:
@@ -387,25 +401,29 @@ def run():
 	loadHackOffsets()
 
 	filepath = os.path.join("vol/",resourceVolFile)
+	audiopath = os.path.join("vol/",audioVolFile)
 
 	# scanResource("test_textures/peter_texture_isolated.bin")
 	if os.path.exists(filepath):
+		offTbl = buildOrLoadOffsetTable(filepath)
 		if extractTextures:
-			offTbl = buildOrLoadOffsetTable(filepath)
 			texTbl = getTexturesFromOffsetTable(offTbl)
 			#extractBin(offTbl, 906)
 			processTextureList(texTbl, filepath)
 			print(f"Summary - Total Series: {fSeries}, Cels Extracted: {cels_extracted}, Cels Skipped: {warn_cels_skipped}")
 		if extractSound:
-			extractAudio(filepath)
+			audTbl = getAudioFromOffsetTable(offTbl)
+			extractAudio(resourceVolFile, audTbl)
 	else:
 		print(f"ERROR: '{filepath}' missing")
 
-	if os.path.exists(f"vol/audio.vol") and userArgs.audio:
-		extractAudio("audio.vol")
+	if os.path.exists(audiopath) and userArgs.audio:
+		offTbl = buildOrLoadOffsetTable(audiopath)
+		audTbl = getAudioFromOffsetTable(offTbl)
+		extractAudio(audioVolFile, audTbl)
 	else:
 		if extractSound:
-			print("WARN: 'vol/audio.vol' missing")
+			print(f"WARN: '{audiopath}' missing")
 
 if __name__ == "__main__":
 	run()
